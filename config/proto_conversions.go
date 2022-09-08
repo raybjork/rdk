@@ -333,11 +333,6 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
-	remoteAuth, err := remoteAuthFromProto(proto.GetAuth())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert remote auth config")
-	}
-
 	remote := Remote{
 		Name:                    proto.GetName(),
 		Address:                 proto.GetAddress(),
@@ -348,15 +343,21 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 		ReconnectInterval:       proto.ReconnectInterval.AsDuration(),
 		ServiceConfig:           serviceConfigs,
 		Secret:                  proto.GetSecret(),
-		Auth:                    *remoteAuth,
+	}
+
+	if proto.GetAuth() != nil {
+		remoteAuth, err := remoteAuthFromProto(proto.GetAuth())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert remote auth config")
+		}
+		remote.Auth = *remoteAuth
 	}
 
 	if proto.GetFrame() != nil {
-		frame, err := FrameConfigFromProto(proto.GetFrame())
+		remote.Frame, err = FrameConfigFromProto(proto.GetFrame())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame from proto config")
 		}
-		remote.Frame = frame
 	}
 
 	return &remote, nil
@@ -548,7 +549,7 @@ func remoteAuthFromProto(proto *pb.RemoteAuth) (*RemoteAuth, error) {
 	return &auth, nil
 }
 
-func mapSliceWithErrors[T any, U any](a []T, f func(T) (U, error)) ([]U, error) {
+func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 	n := make([]U, 0, len(a))
 	for _, e := range a {
 		x, err := f(e)

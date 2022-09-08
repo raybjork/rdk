@@ -1,8 +1,8 @@
 version: v1
 name: buf.build/viamrobotics/rdk
 deps:
-  - buf.build/googleapis/googleapis:c33c435046f2f4db5e8d6db52bd6c662f50f60d8
-  - buf.build/erdaniels/gostream:99544b68ab15405ab7eef404997d9cf4
+  - buf.build/googleapis/googleapis:62f35d8aed1149c291d606d958a7ce32
+  - buf.build/erdaniels/gostream:ae00de34a29e41ed96578beb4a84ae9e
 build:
   excludes:
     - dist
@@ -21,3 +21,7 @@ lint:
   ignore_only:
     RPC_RESPONSE_STANDARD_NAME:
       - proto/api/component/camera/v1/camera.proto
+      - proto/api/component/audioinput/v1/audioinput.proto
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - proto/api/component/camera/v1/camera.proto
+      - proto/api/component/audioinput/v1/audioinput.proto

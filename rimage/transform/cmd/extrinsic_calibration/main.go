@@ -1,7 +1,7 @@
 // Given at least 4 corresponding points, and the intrinsic matrices of both cameras, computes
 // the rigid transform (rotation + translation) that would be the extrinsic transformation
 // from camera 1 to camera 2.
-// rimage/transform/example_extrinsic_calib.json has an example input file.
+// rimage/transform/data/example_extrinsic_calib.json has an example input file.
 // $./extrinsic_calibration -conf=/path/to/input/file
 package main
 
@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/edaniels/golog"
@@ -63,7 +63,7 @@ func readConfig(cfgPath string) (*transform.ExtrinsicCalibrationConfig, error) {
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
-	byteJSON, err := ioutil.ReadAll(f)
+	byteJSON, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}

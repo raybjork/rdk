@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/audioinput"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -70,7 +71,7 @@ func TestConfig1(t *testing.T) {
 
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
-	pic, _, err := c1.Next(context.Background())
+	pic, _, err := camera.ReadImage(context.Background(), c1)
 	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()
@@ -103,11 +104,7 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -167,9 +164,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		vision.Name,
-		sensors.Name,
-		datamanager.Name,
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -178,6 +175,9 @@ func TestConfigRemote(t *testing.T) {
 		camera.Named("squee:cameraOver"),
 		camera.Named("foo:cameraOver"),
 		camera.Named("bar:cameraOver"),
+		audioinput.Named("squee:mic1"),
+		audioinput.Named("foo:mic1"),
+		audioinput.Named("bar:mic1"),
 		movementsensor.Named("squee:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("bar:movement_sensor1"),
@@ -187,15 +187,15 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("squee:pieceGripper"),
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
-		vision.Named("squee:"),
-		sensors.Named("squee:"),
-		datamanager.Named("squee:"),
-		vision.Named("foo:"),
-		sensors.Named("foo:"),
-		datamanager.Named("foo:"),
-		vision.Named("bar:"),
-		sensors.Named("bar:"),
-		datamanager.Named("bar:"),
+		vision.Named("squee:builtin"),
+		sensors.Named("squee:builtin"),
+		datamanager.Named("squee:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+		vision.Named("bar:builtin"),
+		sensors.Named("bar:builtin"),
+		datamanager.Named("bar:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -309,11 +309,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 			}()
 
-			options := weboptions.New()
-			options.Network.BindAddress = ""
-			listener := testutils.ReserveRandomListener(t)
-			addr := listener.Addr().String()
-			options.Network.Listener = listener
+			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
@@ -441,11 +437,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				vision.Name,
-				sensors.Name,
-				datamanager.Name,
+				vision.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
+				audioinput.Named("bar:mic1"),
+				audioinput.Named("foo:mic1"),
 				camera.Named("bar:cameraOver"),
 				camera.Named("foo:cameraOver"),
 				movementsensor.Named("bar:movement_sensor1"),
@@ -454,12 +452,12 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				movementsensor.Named("foo:movement_sensor2"),
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
-				vision.Named("foo:"),
-				sensors.Named("foo:"),
-				datamanager.Named("foo:"),
-				vision.Named("bar:"),
-				sensors.Named("bar:"),
-				datamanager.Named("bar:"),
+				vision.Named("foo:builtin"),
+				sensors.Named("foo:builtin"),
+				datamanager.Named("foo:builtin"),
+				vision.Named("bar:builtin"),
+				sensors.Named("bar:builtin"),
+				datamanager.Named("bar:builtin"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -538,11 +536,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -644,17 +638,18 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		vision.Name,
-		sensors.Name,
-		datamanager.Name,
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
+		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
-		vision.Named("foo:"),
-		sensors.Named("foo:"),
-		datamanager.Named("foo:"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -803,11 +798,7 @@ func TestStopAll(t *testing.T) {
 	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 	// Test OPID cancellation
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -933,20 +924,21 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 8)
+	test.That(t, len(resources), test.ShouldEqual, 9)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
 	// 5 declared resources + default sensors
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
+		audioinput.Named("mic1"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
-		vision.Name,
-		sensors.Name,
-		datamanager.Name,
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -963,7 +955,7 @@ func TestSensorsService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, err := sensors.FromRobot(r)
+	svc, err := sensors.FromRobot(r, resource.DefaultServiceName)
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
@@ -1234,7 +1226,7 @@ func TestGetStatusRemote(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2"),
 		),
 	)
@@ -1257,10 +1249,7 @@ func TestGetStatusRemote(t *testing.T) {
 
 func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	// set up remotes
-	listener1 := testutils.ReserveRandomListener(t)
-	addr1 := listener1.Addr().String()
-	listener2 := testutils.ReserveRandomListener(t)
-	addr2 := listener2.Addr().String()
+	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -1295,9 +1284,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
 	}()
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener1
+
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1311,6 +1298,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	options, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 	remoteConfig := &config.Config{
 		Remotes: []config.Remote{
 			{
@@ -1331,9 +1319,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	defer func() {
 		test.That(t, r1.Close(context.Background()), test.ShouldBeNil)
 	}()
-	options = weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener2
 	err = r1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1348,20 +1333,21 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
+			audioinput.Named("remote:mic1"),
 			camera.Named("remote:cameraOver"),
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
-			vision.Named("remote:"),
-			sensors.Named("remote:"),
-			datamanager.Named("remote:"),
-			vision.Named("remote:foo:"),
-			sensors.Named("remote:foo:"),
-			datamanager.Named("remote:foo:"),
+			vision.Named("remote:builtin"),
+			sensors.Named("remote:builtin"),
+			datamanager.Named("remote:builtin"),
+			vision.Named("remote:foo:builtin"),
+			sensors.Named("remote:foo:builtin"),
+			datamanager.Named("remote:foo:builtin"),
 		),
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
@@ -1447,7 +1433,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesBase, test.ShouldNotBeNil)
 
-	yesSvc, err := r.ResourceByName(datamanager.Name)
+	yesSvc, err := r.ResourceByName(datamanager.Named(resource.DefaultServiceName))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesSvc, test.ShouldNotBeNil)
 }
@@ -1473,10 +1459,9 @@ func TestConfigProcess(t *testing.T) {
 
 func TestReconnectRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	// start the first robot
 	ctx := context.Background()
-	var listener net.Listener = testutils.ReserveRandomListener(t)
 	armConfig := config.Component{
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
@@ -1487,28 +1472,32 @@ func TestReconnectRemote(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	robot, options := robottestutils.StartBaseRobot(ctx, t, logger, listener, &cfg)
+	robot, err := robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
 	}()
-	err := robot.StartWeb(ctx, options)
+	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// start the second robot
 	ctx1 := context.Background()
-	var listener1 net.Listener = testutils.ReserveRandomListener(t)
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+
 	remoteConf := config.Remote{
 		Name:     "remote",
 		Insecure: true,
-		Address:  listener.Addr().String(),
+		Address:  addr,
 	}
 
 	cfg1 := config.Config{
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	robot1, options1 := robottestutils.StartBaseRobot(ctx, t, logger, listener1, &cfg1)
-	addr1 := listener1.Addr().String()
+	robot1, err := robotimpl.New(ctx, &cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
 	}()
@@ -1554,7 +1543,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	// reconnect the first robot
 	ctx2 := context.Background()
-	listener, err = net.Listen("tcp", listener.Addr().String())
+	listener, err := net.Listen("tcp", addr)
 	test.That(t, err, test.ShouldBeNil)
 
 	options.Network.Listener = listener
@@ -1584,7 +1573,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	// start the first robot
 	ctx := context.Background()
-	var listener net.Listener = testutils.ReserveRandomListener(t)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	armConfig := config.Component{
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
@@ -1595,28 +1584,31 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	robot, options := robottestutils.StartBaseRobot(ctx, t, logger, listener, &cfg)
+	robot, err := robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
 	}()
-	err := robot.StartWeb(ctx, options)
+	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// start the second robot
 	ctx1 := context.Background()
-	var listener1 net.Listener = testutils.ReserveRandomListener(t)
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 	remoteConf := config.Remote{
 		Name:     "remote",
 		Insecure: true,
-		Address:  listener.Addr().String(),
+		Address:  addr,
 	}
 
 	cfg1 := config.Config{
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	robot1, options1 := robottestutils.StartBaseRobot(ctx, t, logger, listener1, &cfg1)
-	addr1 := listener1.Addr().String()
+	robot1, err := robotimpl.New(ctx, &cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
 	}()
@@ -1662,7 +1654,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	// reconnect the first robot
 	ctx2 := context.Background()
-	listener, err = net.Listen("tcp", listener.Addr().String())
+	listener, err := net.Listen("tcp", addr)
 	test.That(t, err, test.ShouldBeNil)
 	baseConfig := config.Component{
 		Namespace: resource.ResourceNamespaceRDK,
@@ -1674,7 +1666,12 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Components: []config.Component{baseConfig},
 	}
 
-	robot, options = robottestutils.StartBaseRobot(ctx2, t, logger, listener, &cfg)
+	options = weboptions.New()
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener
+	robot, err = robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	err = robot.StartWeb(ctx2, options)
 	test.That(t, err, test.ShouldBeNil)
 
