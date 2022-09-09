@@ -10,17 +10,16 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"github.com/viamrobotics/visualization"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/arm/fake"
 	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/arm/xarm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/motionplan/visualization"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
 	math "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -116,6 +115,10 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 				ConvertedAttributes: &fake.AttrConfig{ArmModel: xarm.ModelName(6)},
 			}}},
 			logger,
+			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
+				Payload: "f2mfpg79cjz8579a7bqhxpwv5cqtr8yyc9bbpoc8bhy8tqof",
+			})),
 		)
 	} else {
 		robotClient, err = client.New(
