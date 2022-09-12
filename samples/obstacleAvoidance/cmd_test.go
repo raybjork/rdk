@@ -6,6 +6,6 @@ import (
 )
 
 func TestMainSimulation(t *testing.T) {
-	os.Args = append([]string{""}, []string{"--simulation", "--visualize"}...)
+	os.Args = append([]string{""}, []string{"--visualize"}...)
 	main()
 }
