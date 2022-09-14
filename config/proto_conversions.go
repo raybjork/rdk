@@ -1,8 +1,9 @@
 package config
 
 import (
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/proto/viam/app/v1"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -235,56 +236,54 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 func FrameConfigFromProto(proto *pb.Frame) (*Frame, error) {
 	frame := Frame{
 		Parent: proto.GetParent(),
-		Translation: spatial.TranslationConfig{
+		Translation: r3.Vector{
 			X: proto.GetTranslation().GetX(),
 			Y: proto.GetTranslation().GetY(),
 			Z: proto.GetTranslation().GetZ(),
 		},
 	}
 
-	if proto.GetOrientation() == nil {
-		return nil, errors.New("missing orientation")
-	}
-
-	switch or := proto.GetOrientation().Type.(type) {
-	case *pb.Orientation_NoOrientation_:
-		frame.Orientation = spatial.NewZeroOrientation()
-	case *pb.Orientation_VectorRadians:
-		frame.Orientation = &spatial.OrientationVector{
-			Theta: or.VectorRadians.Theta,
-			OX:    or.VectorRadians.X,
-			OY:    or.VectorRadians.Y,
-			OZ:    or.VectorRadians.Z,
+	if proto.GetOrientation() != nil {
+		switch or := proto.GetOrientation().Type.(type) {
+		case *pb.Orientation_NoOrientation_:
+			frame.Orientation = spatial.NewZeroOrientation()
+		case *pb.Orientation_VectorRadians:
+			frame.Orientation = &spatial.OrientationVector{
+				Theta: or.VectorRadians.Theta,
+				OX:    or.VectorRadians.X,
+				OY:    or.VectorRadians.Y,
+				OZ:    or.VectorRadians.Z,
+			}
+		case *pb.Orientation_VectorDegrees:
+			frame.Orientation = &spatial.OrientationVectorDegrees{
+				Theta: or.VectorDegrees.Theta,
+				OX:    or.VectorDegrees.X,
+				OY:    or.VectorDegrees.Y,
+				OZ:    or.VectorDegrees.Z,
+			}
+		case *pb.Orientation_EulerAngles_:
+			frame.Orientation = &spatial.EulerAngles{
+				Pitch: or.EulerAngles.Pitch,
+				Roll:  or.EulerAngles.Roll,
+				Yaw:   or.EulerAngles.Yaw,
+			}
+		case *pb.Orientation_AxisAngles_:
+			frame.Orientation = &spatial.R4AA{
+				Theta: or.AxisAngles.Theta,
+				RX:    or.AxisAngles.X,
+				RY:    or.AxisAngles.Y,
+				RZ:    or.AxisAngles.Z,
+			}
+		case *pb.Orientation_Quaternion_:
+			frame.Orientation = &spatial.Quaternion{
+				Real: or.Quaternion.W,
+				Imag: or.Quaternion.X,
+				Jmag: or.Quaternion.Y,
+				Kmag: or.Quaternion.Z,
+			}
+		default:
+			return nil, errors.New("Orientation type unsupported")
 		}
-	case *pb.Orientation_VectorDegrees:
-		frame.Orientation = &spatial.OrientationVectorDegrees{
-			Theta: or.VectorDegrees.Theta,
-			OX:    or.VectorDegrees.X,
-			OY:    or.VectorDegrees.Y,
-			OZ:    or.VectorDegrees.Z,
-		}
-	case *pb.Orientation_EulerAngles_:
-		frame.Orientation = &spatial.EulerAngles{
-			Pitch: or.EulerAngles.Pitch,
-			Roll:  or.EulerAngles.Roll,
-			Yaw:   or.EulerAngles.Yaw,
-		}
-	case *pb.Orientation_AxisAngles_:
-		frame.Orientation = &spatial.R4AA{
-			Theta: or.AxisAngles.Theta,
-			RX:    or.AxisAngles.X,
-			RY:    or.AxisAngles.Y,
-			RZ:    or.AxisAngles.Z,
-		}
-	case *pb.Orientation_Quaternion_:
-		frame.Orientation = &spatial.Quaternion{
-			Real: or.Quaternion.W,
-			Imag: or.Quaternion.X,
-			Jmag: or.Quaternion.Y,
-			Kmag: or.Quaternion.Z,
-		}
-	default:
-		return nil, errors.New("Orientation type unsupported")
 	}
 
 	return &frame, nil

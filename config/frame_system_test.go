@@ -64,7 +64,7 @@ func TestFrameModelPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: r3.Vector{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	result, err = part.ToProtobuf()
@@ -117,23 +117,23 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: &Frame{Parent: "world"},
 		ModelFrame:  nil,
 	}
-	modelFrame, offsetFrame, err := CreateFramesFromPart(part, logger)
+	modelFrame, originFrame, err := CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name))
-	test.That(t, offsetFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name+"_offset"))
+	test.That(t, originFrame, test.ShouldResemble, referenceframe.NewZeroStaticFrame(part.Name+"_origin"))
 
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: r3.Vector{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
-	modelFrame, offsetFrame, err = CreateFramesFromPart(part, logger)
+	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame.Name(), test.ShouldEqual, part.Name)
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
-	test.That(t, offsetFrame.Name(), test.ShouldEqual, part.Name+"_offset")
-	test.That(t, offsetFrame.DoF(), test.ShouldHaveLength, 0)
+	test.That(t, originFrame.Name(), test.ShouldEqual, part.Name+"_origin")
+	test.That(t, originFrame.DoF(), test.ShouldHaveLength, 0)
 }
 
 func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {

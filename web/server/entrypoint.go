@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -26,14 +25,15 @@ import (
 
 // Arguments for the command.
 type Arguments struct {
-	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile         string `flag:"config,usage=robot config file"`
-	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
-	Debug              bool   `flag:"debug"`
-	SharedDir          string `flag:"shareddir,usage=web resource directory"`
-	Version            bool   `flag:"version,usage=print version"`
-	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
-	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
+	ConfigFile                 string `flag:"config,usage=robot config file"`
+	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
+	Debug                      bool   `flag:"debug"`
+	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
+	Version                    bool   `flag:"version,usage=print version"`
+	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
+	WebRTC                     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	revealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -68,9 +68,43 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := perf.NewNiceLoggingSpanExporter()
-	trace.RegisterExporter(exp)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	// Read the config from disk and use it to initialize the remote logger.
+	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger)
+	if err != nil {
+		cancel()
+		return err
+	}
+	cancel()
+
+	// Start remote logging with config from disk.
+	// This is to ensure we make our best effort to write logs for failures loading the remote config.
+	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
+		var closer func()
+		logger, closer, err = addCloudLogger(logger, cfgFromDisk.Cloud)
+		if err != nil {
+			return err
+		}
+		defer closer()
+	}
+
+	// Run the server with remote logging enabled.
+	err = runServerWithLogging(ctx, argsParsed, logger)
+	if err != nil {
+		logger.Error("Fatal error running server, existing now: ", err)
+	}
+
+	return err
+}
+
+// RunServer is an entry point to starting the web server after the local config is read. Once the local config
+// is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
+func runServerWithLogging(ctx context.Context, argsParsed Arguments, logger golog.Logger) (err error) {
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
+	defer exporter.Stop()
 
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
@@ -80,19 +114,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 	cancel()
 
-	if cfg.Cloud != nil && (cfg.Cloud.LogPath != "" || cfg.Cloud.AppAddress != "") {
-		var closer func()
-		logger, closer, err = addCloudLogger(logger, cfg.Cloud)
-		if err != nil {
-			return err
-		}
-		defer closer()
-	}
-
 	err = serveWeb(ctx, cfg, argsParsed, logger)
 	if err != nil {
 		logger.Errorw("error serving web", "error", err)
 	}
+
 	return err
 }
 
@@ -183,12 +209,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
 	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 
-	myRobot, err := robotimpl.New(
-		ctx,
-		processedConfig,
-		logger,
-		robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig)),
-	)
+	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
+	if argsParsed.revealSensitiveConfigDiffs {
+		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
+	}
+
+	myRobot, err := robotimpl.New(ctx, processedConfig, logger, robotOptions...)
 	if err != nil {
 		return err
 	}
@@ -225,7 +251,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(*oldCfg, *processedConfig)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, argsParsed.revealSensitiveConfigDiffs)
 				if err != nil {
 					logger.Errorw("error diffing config", "error", err)
 					continue
