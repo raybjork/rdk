@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/commonsysfs"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
@@ -29,8 +30,7 @@ func TestPiHardware(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := board.Config{
-		// Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
+	cfg := commonsysfs.Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
 			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25
@@ -125,7 +125,7 @@ func TestPiHardware(t *testing.T) {
 		err = servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := servo1.GetPosition(ctx)
+		v, err := servo1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
@@ -176,7 +176,7 @@ func TestPiHardware(t *testing.T) {
 	motor1 := motorInt.(motor.Motor)
 
 	t.Run("motor forward", func(t *testing.T) {
-		pos, err := motor1.GetPosition(ctx, nil)
+		pos, err := motor1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 0o1)
 
@@ -204,7 +204,7 @@ func TestPiHardware(t *testing.T) {
 
 			loops++
 			if loops > 100 {
-				pos, err = motor1.GetPosition(ctx, nil)
+				pos, err = motor1.Position(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				aVal, err := hallA.Value(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
