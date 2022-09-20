@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -28,6 +29,9 @@ type rrtStarConnectOptions struct {
 	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early
 	OptimalityThreshold float64 `json:"optimality_threshold"`
 
+	// Period of iterations after which a new solution is calculated and updated.
+	SolutionCalculationPeriod int
+
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
 
@@ -39,9 +43,10 @@ type rrtStarConnectOptions struct {
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
 func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
-		OptimalityThreshold: defaultOptimalityThreshold,
-		NeighborhoodSize:    defaultNeighborhoodSize,
-		rrtOptions:          newRRTOptions(planOpts),
+		OptimalityThreshold:       defaultOptimalityThreshold,
+		SolutionCalculationPeriod: defaultSolutionCalculationPeriod,
+		NeighborhoodSize:          defaultNeighborhoodSize,
+		rrtOptions:                newRRTOptions(planOpts),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -145,7 +150,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	startMap[&node{q: seed}] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
+	samples := [][]referenceframe.Input{referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)}
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -164,6 +169,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// try to connect the target to map 1
+		target := samples[i%algOpts.SolutionCalculationPeriod]
 		if map1reached := mp.extend(algOpts, map1, target); map1reached != nil {
 			// try to connect the target to map 2
 			if map2reached := mp.extend(algOpts, map2, target); map2reached != nil {
@@ -172,12 +178,8 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 			}
 		}
 
-		// get next sample, switch map pointers
-		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
-		map1, map2 = map2, map1
-
 		// calculate the solution and log status of planner
-		if i%defaultSolutionCalculationPeriod == 0 {
+		if i%algOpts.SolutionCalculationPeriod == 0 {
 			solution := shortestPath(startMap, goalMap, shared)
 			solutionCost = EvaluatePlan(solution, planOpts)
 			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
@@ -188,7 +190,11 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 				solutionChan <- solution
 				return
 			}
+			samples = mp.sample(algOpts, solutionCost, seed, solutions[len(solutions)-1].q)
 		}
+
+		// get next sample, switch map pointers
+		map1, map2 = map2, map1
 	}
 
 	solutionChan <- shortestPath(startMap, goalMap, shared)
@@ -234,4 +240,104 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		}
 	}
 	return targetNode
+}
+
+func (mp *rrtStarConnectMotionPlanner) sample(
+	algOpts *rrtStarConnectOptions,
+	bestCost float64,
+	start, goal []referenceframe.Input,
+) [][]referenceframe.Input {
+	if bestCost < math.Inf(1) {
+		return mp.informed_sample(
+			algOpts,
+			bestCost,
+			mat.NewVecDense(len(start), referenceframe.InputsToFloats(start)),
+			mat.NewVecDense(len(goal), referenceframe.InputsToFloats(goal)),
+		)
+	}
+	samples := make([][]referenceframe.Input, 0)
+	for i := 0; i < algOpts.SolutionCalculationPeriod; i++ {
+		samples = append(samples, referenceframe.RandomFrameInputs(mp.frame, mp.randseed))
+	}
+	return samples
+}
+
+func (mp *rrtStarConnectMotionPlanner) informed_sample(
+	algOpts *rrtStarConnectOptions,
+	bestCost float64,
+	start, goal *mat.VecDense,
+) [][]referenceframe.Input {
+	n := start.Len()
+
+	// compute center of ellipse
+	var center *mat.VecDense
+	center.AddScaledVec(start, .5, goal)
+
+	// compute cmin
+	var difference *mat.VecDense
+	difference.SubVec(goal, start)
+	minCost := difference.Norm(2)
+
+	// compute ellipse geometry
+	r1 := bestCost / 2
+	r2 := math.Sqrt(bestCost*bestCost - minCost*minCost)
+
+	// construct M matrix
+	var a *mat.VecDense
+	a.ScaleVec(1/minCost, difference)
+	M := mat.NewDense(n, n, nil)
+	M.SetCol(0, a)
+
+	// compute SVD of M
+	var U, V *mat.Dense
+	var svd mat.SVD
+	ok := svd.Factorize(M, mat.SVDFull)
+	if !ok {
+		return nil
+	}
+	svd.UTo(U)
+	svd.VTo(V)
+
+	// compute L matrix
+	lDiag := make([]float64, n)
+	lDiag[0] = r1
+	for i := 1; i < n; i++ {
+		lDiag[i] = r2 / 2
+	}
+	L := mat.NewDiagDense(n, lDiag)
+
+	// compute C matrix
+	sigDiag := make([]float64, n)
+	for i := 0; i < n-1; i++ {
+		sigDiag[i] = 1
+	}
+	sigDiag[n-1] = mat.Det(U) * mat.Det(U)
+	Sigma := mat.NewDiagDense(n, sigDiag)
+	var tempResult, C *mat.Dense
+	tempResult.Mul(U, Sigma)
+	C.Mul(tempResult, V.T())
+
+	// compute final samples
+	tempResult.Mul(C, L)
+	samples := make([][]referenceframe.Input, 0)
+	for i := 0; i < algOpts.SolutionCalculationPeriod; i++ {
+		var scaledSample, sampleVec *mat.VecDense
+		scaledSample.MulVec(tempResult, mp.sampleBall(n))
+		sampleVec.AddVec(scaledSample, center)
+		samples = append(samples, referenceframe.FloatsToInputs(sampleVec.RawVector().Data))
+	}
+	return samples
+}
+
+// source: http://extremelearning.com.au/how-to-generate-uniformly-random-points-on-n-spheres-and-n-balls/
+func (mp *rrtStarConnectMotionPlanner) sampleBall(n int) *mat.VecDense {
+	rands := make([]float64, n)
+	for j := 0; j < n; j++ {
+		rands[j] = mp.randseed.NormFloat64()
+	}
+	r := math.Pow(mp.randseed.Float64(), 1/float64(n))
+	u := mat.NewVecDense(n, rands)
+	var sample *mat.VecDense
+	sample.ScaleVec(r/u.Norm(2), u)
+	return sample
 }
