@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
@@ -18,15 +17,10 @@ import (
 )
 
 var (
-	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
-	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	logger = golog.NewDevelopmentLogger("test")
+	home7  = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
+	home6  = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
-
-var logger, _ = zap.Config{
-	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
-	Encoding:          "console",
-	DisableStacktrace: true,
-}.Build()
 
 type planConfig struct {
 	Start      []frame.Input
@@ -43,7 +37,7 @@ type (
 func BenchmarkUnconstrainedMotion(b *testing.B) {
 	config, err := simpleUR5eMotion()
 	test.That(b, err, test.ShouldBeNil)
-	mp, err := NewRRTConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger.Sugar())
+	mp, err := NewRRTConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger)
 	test.That(b, err, test.ShouldBeNil)
 	plan, err := mp.Plan(context.Background(), config.Goal, config.Start, config.Options)
 	test.That(b, err, test.ShouldBeNil)
@@ -140,7 +134,7 @@ func TestPlanningWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripper, ur5e)
 	test.That(t, err, test.ShouldBeNil)
-	fss := NewSolvableFrameSystem(fs, logger.Sugar())
+	fss := NewSolvableFrameSystem(fs, logger)
 	zeroPos := frame.StartPositions(fss)
 
 	newPose := frame.NewPoseInFrame("gripper", spatial.NewPoseFromPoint(r3.Vector{100, 100, 0}))
@@ -248,7 +242,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := planner(cfg.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(seed))), logger.Sugar())
+	mp, err := planner(cfg.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(seed))), logger)
 	test.That(t, err, test.ShouldBeNil)
 	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)

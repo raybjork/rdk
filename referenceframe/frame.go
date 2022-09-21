@@ -29,6 +29,14 @@ type Limit struct {
 	Max float64
 }
 
+// Within tests if the given input is valid for the Limit receiver
+func (l *Limit) Within(input Input) bool {
+	if input.Value < l.Min || input.Value > l.Max {
+		return false
+	}
+	return true
+}
+
 func limitsAlmostEqual(a, b []Limit) bool {
 	if len(a) != len(b) {
 		return false
@@ -98,6 +106,9 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 type Frame interface {
 	// Name returns the name of the referenceframe.
 	Name() string
+
+	// ValidInput returns if the given input to the frame is valid
+	ValidInput([]Input) bool
 
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
 	Transform([]Input) (spatial.Pose, error)
@@ -272,7 +283,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 
 	// We allow out-of-bounds calculations, but will return a non-nil error
-	if input[0].Value < pf.limit[0].Min || input[0].Value > pf.limit[0].Max {
+	if pf.limit[0].Within(input[0]) {
 		err = fmt.Errorf("%.5f %s %v", input[0].Value, OOBErrString, pf.limit[0])
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
@@ -357,7 +368,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, NewIncorrectInputLengthError(len(input), 1)
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
-	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
+	if rf.limit[0].Within(input[0]) {
 		err = fmt.Errorf("%.5f %s %.5f", input[0].Value, OOBErrString, rf.limit[0])
 	}
 	// Create a copy of the r4aa for thread safety
@@ -442,7 +453,7 @@ func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	for i, lim := range mf.limit {
-		if input[i].Value < lim.Min || input[i].Value > lim.Max {
+		if lim.Within(input[i]) {
 			multierr.AppendInto(&errAll, fmt.Errorf("%.5f %s %.5f", input[i].Value, OOBErrString, mf.limit[i]))
 		}
 	}

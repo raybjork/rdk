@@ -30,7 +30,7 @@ type rrtStarConnectOptions struct {
 	OptimalityThreshold float64 `json:"optimality_threshold"`
 
 	// Period of iterations after which a new solution is calculated and updated.
-	SolutionCalculationPeriod int
+	SolutionCalculationPeriod int `json:"solution_calculation_period"`
 
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
@@ -150,7 +150,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	startMap[newCostNode(seed, 0)] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	samples := [][]referenceframe.Input{referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)}
+	samples := [][]referenceframe.Input{referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)}
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -170,6 +170,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 		// try to connect the target to map 1
 		target := samples[i%algOpts.SolutionCalculationPeriod]
+		mp.logger.Debug("Target sample: %v", target)
 		if map1reached := mp.extend(algOpts, map1, target); map1reached != nil {
 			// try to connect the target to map 2
 			if map2reached := mp.extend(algOpts, map2, target); map2reached != nil {
@@ -190,14 +191,16 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 				solutionChan <- solution
 				return
 			}
-			samples = mp.sample(algOpts, solutionCost, seed, solutions[len(solutions)-1].q)
+			samples = mp.sample(algOpts, solutionCost, seed, solutions[len(solutions)-1].Q())
 		}
 
 		// get next sample, switch map pointers
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- shortestPath(startMap, goalMap, shared)
+	solution := shortestPath(startMap, goalMap, shared)
+	solutionCost = EvaluatePlan(solution, planOpts)
+	solutionChan <- solution
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[node]node, target []referenceframe.Input) node {
@@ -351,7 +354,7 @@ func (mp *rrtStarConnectMotionPlanner) sampleBall(n int) *mat.VecDense {
 	}
 	r := math.Pow(mp.randseed.Float64(), 1/float64(n))
 	u := mat.NewVecDense(n, rands)
-	var sample *mat.VecDense
+	sample := &mat.VecDense{}
 	sample.ScaleVec(r/u.Norm(2), u)
 	return sample
 }

@@ -39,7 +39,7 @@ require (
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.2
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3
 	github.com/invopop/jsonschema v0.6.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jedib0t/go-pretty/v6 v6.3.3
@@ -75,11 +75,11 @@ require (
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.0.6-0.20220920201121-47f4f3281a18
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
-	gonum.org/v1/gonum v0.11.0
+	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69
+	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.11.0
 	google.golang.org/genproto v0.0.0-20220914142337-ca0e39ece12f
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.49.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/src-d/go-billy.v4 v4.3.2
@@ -336,10 +336,10 @@ require (
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/exp/typeparams v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220809012201-f428fae20770 // indirect
-	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c // indirect
+	golang.org/x/net v0.0.0-20220906165146-f3363e06e74c // indirect
+	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
+	golang.org/x/sys v0.0.0-20220906165534-d0df966e6959 // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.12 // indirect
@@ -362,6 +362,7 @@ require (
 	github.com/goburrow/modbus v0.1.0
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/viamrobotics/visualization v0.0.0-20220920163934-77338f2d5615
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )

@@ -22,9 +22,9 @@ func TestModelLoading(t *testing.T) {
 	test.That(t, simpleM.OperationalDoF(), test.ShouldEqual, 1)
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	isValid := IsConfigurationValid(simpleM, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	isValid := IsConfigurationValid(simpleM, []Input{{0.1}, {0.1}, {0.1}, {0.1}, {0.1}, {0.1}})
 	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = IsConfigurationValid(simpleM, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
+	isValid = IsConfigurationValid(simpleM, []Input{{0.1}, {0.1}, {0.1}, {0.1}, {0.1}, {99}})
 	test.That(t, isValid, test.ShouldBeFalse)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
@@ -32,7 +32,7 @@ func TestModelLoading(t *testing.T) {
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, IsConfigurationValid(simpleM, randpos), test.ShouldBeTrue)
+	test.That(t, IsConfigurationValid(simpleM, FloatsToInputs(randpos)), test.ShouldBeTrue)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
