@@ -270,11 +270,11 @@ func (mp *rrtStarConnectMotionPlanner) informed_sample(
 	n := start.Len()
 
 	// compute center of ellipse
-	var center *mat.VecDense
+	center := &mat.VecDense{}
 	center.AddScaledVec(start, .5, goal)
 
 	// compute cmin
-	var difference *mat.VecDense
+	difference := &mat.VecDense{}
 	difference.SubVec(goal, start)
 	minCost := difference.Norm(2)
 
@@ -283,13 +283,13 @@ func (mp *rrtStarConnectMotionPlanner) informed_sample(
 	r2 := math.Sqrt(bestCost*bestCost - minCost*minCost)
 
 	// construct M matrix
-	var a *mat.VecDense
+	a := &mat.VecDense{}
 	a.ScaleVec(1/minCost, difference)
 	M := mat.NewDense(n, n, nil)
-	M.SetCol(0, a)
+	M.SetCol(0, a.RawVector().Data)
 
 	// compute SVD of M
-	var U, V *mat.Dense
+	U, V := &mat.Dense{}, &mat.Dense{}
 	var svd mat.SVD
 	ok := svd.Factorize(M, mat.SVDFull)
 	if !ok {
@@ -313,7 +313,7 @@ func (mp *rrtStarConnectMotionPlanner) informed_sample(
 	}
 	sigDiag[n-1] = mat.Det(U) * mat.Det(U)
 	Sigma := mat.NewDiagDense(n, sigDiag)
-	var tempResult, C *mat.Dense
+	tempResult, C := &mat.Dense{}, &mat.Dense{}
 	tempResult.Mul(U, Sigma)
 	C.Mul(tempResult, V.T())
 
@@ -321,11 +321,23 @@ func (mp *rrtStarConnectMotionPlanner) informed_sample(
 	tempResult.Mul(C, L)
 	samples := make([][]referenceframe.Input, 0)
 	for i := 0; i < algOpts.SolutionCalculationPeriod; i++ {
-		var scaledSample, sampleVec *mat.VecDense
+		scaledSample, sampleVec := &mat.VecDense{}, &mat.VecDense{}
 		scaledSample.MulVec(tempResult, mp.sampleBall(n))
 		sampleVec.AddVec(scaledSample, center)
-		samples = append(samples, referenceframe.FloatsToInputs(sampleVec.RawVector().Data))
+
+		// make sure samples fall within bounds of frame
+		limits := mp.frame.DoF()
+		sample := sampleVec.RawVector().Data
+		for i := 0; i < n; i++ {
+			if sample[i] < limits[i].Min {
+				sample[i] = limits[i].Min
+			} else if sample[i] > limits[i].Max {
+				sample[i] = limits[i].Max
+			}
+		}
+		samples = append(samples, referenceframe.FloatsToInputs(sample))
 	}
+
 	return samples
 }
 
