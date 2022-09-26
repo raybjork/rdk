@@ -7,14 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/viamrobotics/visualization"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"github.com/viamrobotics/visualization"
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/arm/fake"
-	_ "go.viam.com/rdk/component/arm/register"
-	"go.viam.com/rdk/component/arm/xarm"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	pb "go.viam.com/rdk/proto/api/common/v1"
