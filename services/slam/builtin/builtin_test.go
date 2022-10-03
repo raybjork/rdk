@@ -4,11 +4,9 @@
 package builtin_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"image"
-	"image/png"
 	"math"
 	"net"
 	"os"
@@ -44,7 +42,6 @@ import (
 )
 
 const (
-	timePadding      = 20
 	validDataRateMS  = 200
 	numOrbslamImages = 29
 )
@@ -185,11 +182,7 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				img, err := png.Decode(bytes.NewReader(imgBytes))
-				if err != nil {
-					return nil, err
-				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
@@ -212,11 +205,7 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				img, err := png.Decode(bytes.NewReader(imgBytes))
-				if err != nil {
-					return nil, err
-				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
@@ -571,7 +560,7 @@ func TestORBSLAMNew(t *testing.T) {
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
 		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
-			Sensors:       []string{"good_camera"},
+			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
 			DataRateMs:    validDataRateMS,
@@ -683,15 +672,13 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+		c := make(chan int)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		n := 5
-		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
+		<-c
 		cancelFunc()
-
 		files, err := os.ReadDir(name + "/data/")
-		test.That(t, len(files), test.ShouldEqual, n)
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -712,12 +699,13 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
 		cancelFunc()
 
-		latestLoggedEntry := obs.All()[len(obs.All())-1]
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
@@ -734,7 +722,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:     "fake_orbslamv3",
-		Sensors:       []string{"good_camera"},
+		Sensors:       []string{"good_color_camera"},
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
 		DataRateMs:    validDataRateMS,
@@ -755,10 +743,18 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	t.Run("ORBSLAM3 Data Process with camera in slam mode mono", func(t *testing.T) {
 		goodCam := &inject.Camera{}
 		goodCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-			return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
-			})), nil
+			imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
+			if err != nil {
+				return nil, err
+			}
+			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+			return gostream.NewEmbeddedVideoStreamFromReader(
+				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+					return lazy, func() {}, nil
+				}),
+			), nil
 		}
+
 		cams := []camera.Camera{goodCam}
 		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
 		defer func() {
@@ -768,15 +764,14 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
-		n := 5
-		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
+		c := make(chan int)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+
+		<-c
 		cancelFunc()
-
-		files, err := os.ReadDir(name + "/data/")
-		test.That(t, len(files), test.ShouldEqual, n)
+		files, err := os.ReadDir(name + "/data/rgb/")
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -794,12 +789,13 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
 		cancelFunc()
 
-		latestLoggedEntry := obs.All()[len(obs.All())-1]
+		obsAll := obs.All()
+		latestLoggedEntry := obsAll[len(obsAll)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 
@@ -816,7 +812,7 @@ func TestGetMapAndPosition(t *testing.T) {
 
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
-		Sensors:          []string{"good_camera"},
+		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
@@ -858,7 +854,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
-		Sensors:          []string{"good_camera"},
+		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
@@ -879,7 +875,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	cmdResult := [][]string{
 		{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-		{"-sensors=good_camera"},
+		{"-sensors=good_color_camera"},
 		{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
 		{"-data_rate_ms=200"},
 		{"-map_rate_sec=200"},
@@ -908,7 +904,7 @@ func TestSLAMProcessFail(t *testing.T) {
 
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
-		Sensors:          []string{"good_camera"},
+		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
@@ -960,7 +956,7 @@ func TestGRPCConnection(t *testing.T) {
 
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
-		Sensors:          []string{"good_camera"},
+		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
