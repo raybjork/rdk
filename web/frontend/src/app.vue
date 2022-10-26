@@ -13,14 +13,12 @@ import robotApi, {
   type Operation,
   type StreamStatusResponse,
 } from './gen/proto/api/robot/v1/robot_pb.esm';
-import type { ResponseStream } from './gen/proto/stream/v1/stream_pb_service.esm';
+import type { ResponseStream, ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
 import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
-  normalizeRemoteName,
   resourceNameToSubtypeString,
   resourceNameToString,
   filterResources,
@@ -56,6 +54,7 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from './lib/fixers';
+import { addStream, removeStream } from './lib/stream';
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -73,6 +72,7 @@ const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: ResponseStream<StreamStatusResponse>;
+let baseCameraState = new Map<string, boolean>();
 let lastStatusTS = Date.now();
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -179,18 +179,24 @@ const fixRawStatus = (resource: Resource, statusToFix: unknown) => {
      * TODO (APP-146): generate these using constants
      * TODO these types need to be fixed.
      */
-    case 'rdk:component:arm':
+    case 'rdk:component:arm': {
       return fixArmStatus(statusToFix as never);
-    case 'rdk:component:board':
+    }
+    case 'rdk:component:board': {
       return fixBoardStatus(statusToFix as never);
-    case 'rdk:component:gantry':
+    }
+    case 'rdk:component:gantry': {
       return fixGantryStatus(statusToFix as never);
-    case 'rdk:component:input_controller':
+    }
+    case 'rdk:component:input_controller': {
       return fixInputStatus(statusToFix as never);
-    case 'rdk:component:motor':
+    }
+    case 'rdk:component:motor': {
       return fixMotorStatus(statusToFix as never);
-    case 'rdk:component:servo':
+    }
+    case 'rdk:component:servo': {
       return fixServoStatus(statusToFix as never);
+    }
   }
 
   return statusToFix;
@@ -370,6 +376,14 @@ const loadCurrentOps = () => {
         });
       }
 
+      currentOps.sort((op1, op2) => {
+        if (op1.elapsed === -1 || op2.elapsed === -1) {
+          // move op with null start time to the back of the list
+          return op2.elapsed - op1.elapsed;
+        }
+        return op1.elapsed - op2.elapsed;
+      });
+
       resolve(currentOps);
     });
   });
@@ -483,41 +497,26 @@ const filteredInputControllerList = () => {
     resourceStatusByName(elem));
 };
 
-const viewCamera = (name: string, isOn: boolean) => {
-  const streamName = normalizeRemoteName(name);
-  const streamContainer = document.querySelector(`#stream-${streamName}`);
-
+const viewCamera = async (name: string, isOn: boolean) => {
   if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
-      if (streamContainer) {
-        streamContainer.querySelector('img')?.remove();
+    try {
+      // only add stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await addStream(name);
       }
-
-      if (err) {
-        toast.error('No live camera device found.');
-        displayError(err);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+  } else {
+    try {
+      // only remove stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await removeStream(name);
       }
-    });
-    document.querySelector(`#stream-preview-${streamName}`)?.removeAttribute('hidden');
-    return;
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
   }
-
-  document.querySelector(`#stream-preview-${streamName}`)?.setAttribute('hidden', 'true');
-
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
-    if (streamContainer) {
-      streamContainer.querySelector('img')?.remove();
-    }
-
-    if (err) {
-      toast.error('No live camera device found.');
-      displayError(err);
-    }
-  });
 };
 
 const viewManualFrame = (cameraName: string) => {
@@ -530,17 +529,15 @@ const viewManualFrame = (cameraName: string) => {
       return displayError(err);
     }
 
-    const streamName = normalizeRemoteName(cameraName);
-    const streamContainer = document.querySelector(`#stream-${streamName}`);
-    if (streamContainer) {
+    const streamContainers = document.querySelectorAll(`[data-stream="${cameraName}"]`);
+    for (const streamContainer of streamContainers) {
       streamContainer.querySelector('video')?.remove();
       streamContainer.querySelector('img')?.remove();
+      const image = new Image();
+      const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
+      image.src = URL.createObjectURL(blob);
+      streamContainer.append(image);
     }
-
-    const image = new Image();
-    const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
-    image.src = URL.createObjectURL(blob);
-    streamContainer!.append(image);
   });
 };
 
@@ -554,17 +551,15 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
         return displayError(err);
       }
 
-      const streamName = normalizeRemoteName(cameraName);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer) {
+      const streamContainers = document.querySelectorAll(`[data-stream="${cameraName}"]`);
+      for (const streamContainer of streamContainers) {
         streamContainer.querySelector('video')?.remove();
         streamContainer.querySelector('img')?.remove();
+        const image = new Image();
+        const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+        image.src = URL.createObjectURL(blob);
+        streamContainer.append(image);
       }
-
-      const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-      image.src = URL.createObjectURL(blob);
-      streamContainer!.append(image);
     });
   }, Number(time) * 1000);
 };
@@ -623,10 +618,8 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const handleSelectCamera = (event: string, cameras: Resource[]) => {
-  for (const camera of cameras) {
-    viewCamera(camera.name, event.includes(camera.name));
-  }
+const updatedBaseCameraState = (event: Map<string, boolean>) => {
+  baseCameraState = event;
 };
 
 onMounted(async () => {
@@ -698,7 +691,7 @@ onMounted(async () => {
       :key="base.name"
       :name="base.name"
       :resources="resources"
-      @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
+      @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->
@@ -776,7 +769,6 @@ onMounted(async () => {
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :key="camera.name"
       :camera-name="camera.name"
-      :crumbs="[camera.name]"
       :resources="resources"
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
@@ -803,7 +795,6 @@ onMounted(async () => {
       v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
       :key="audioInput.name"
       :name="audioInput.name"
-      :crumbs="[audioInput.name]"
     />
 
     <!-- ******* SLAM *******  -->
