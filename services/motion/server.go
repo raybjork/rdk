@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
@@ -37,6 +38,7 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+	operation.CancelOtherWithLabel(ctx, "motion-service")
 	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
@@ -55,6 +57,7 @@ func (server *subtypeServer) MoveSingleComponent(
 	ctx context.Context,
 	req *pb.MoveSingleComponentRequest,
 ) (*pb.MoveSingleComponentResponse, error) {
+	operation.CancelOtherWithLabel(ctx, "motion-service")
 	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err

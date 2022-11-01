@@ -42,6 +42,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 type builtIn struct {
 	r      robot.Robot
 	logger golog.Logger
+	opMgr  operation.SingleOperationManager
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -52,7 +53,9 @@ func (ms *builtIn) Move(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, "motion-service")
+	ctx, done := ms.opMgr.New(ctx)
+	defer done()
+
 	logger := ms.r.Logger()
 
 	// get goal frame
@@ -120,7 +123,9 @@ func (ms *builtIn) MoveSingleComponent(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, "motion-service")
+	ctx, done := ms.opMgr.New(ctx)
+	defer done()
+
 	logger := ms.r.Logger()
 
 	components := robot.AllResourcesByName(ms.r, componentName.Name)

@@ -35,7 +35,7 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 
 type mock struct {
 	motion.Service
-	grabCount   int
+	moveCount   int
 	name        string
 	reconfCount int
 }
@@ -47,7 +47,7 @@ func (m *mock) Move(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	m.grabCount++
+	m.moveCount++
 	return false, nil
 }
 
@@ -58,7 +58,7 @@ func (m *mock) MoveSingleComponent(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	m.grabCount++
+	m.moveCount++
 	return false, nil
 }
 
@@ -88,7 +88,7 @@ func TestFromRobot(t *testing.T) {
 	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, false)
-	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
+	test.That(t, svc1.moveCount, test.ShouldEqual, 1)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return "not motion", nil
