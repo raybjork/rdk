@@ -1,8 +1,9 @@
 package motionplan
 
 import (
-	"errors"
 	"math"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/geo/r3"
 
@@ -132,11 +133,17 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func newSelfCollisionConstraint(
 	frame referenceframe.Frame,
+	fs referenceframe.FrameSystem,
 	observationInput map[string][]referenceframe.Input,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) (Constraint, error) {
-	return newCollisionConstraint(frame, nil, observationInput, collisionSpecifications, reportDistances)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, observationInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return newCollisionConstraint(frame, frameSystemGeometries.Geometries(), observationInput, collisionSpecifications, reportDistances)
 }
 
 // newObstacleConstraint creates a constraint that will be violated if geometries constituting the given frame ever come
@@ -160,7 +167,7 @@ func newObstacleConstraint(frame referenceframe.Frame,
 	return newCollisionConstraint(frame, worldState.Obstacles[0].Geometries(), observationInput, collisionSpecifications, reportDistances)
 }
 
-// newCollisionConstraint is the most general method to create a collision constraint, which ill be violated if geometries constituting
+// newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
 // the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
