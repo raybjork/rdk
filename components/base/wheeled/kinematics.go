@@ -27,10 +27,14 @@ type kinematicWheeledBase struct {
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func WrapWithKinematics(ctx context.Context, base *wheeledBase, slamName string, slam slam.Service) (base.KinematicBase, error) {
+func WrapWithKinematics(ctx context.Context, base base.Base, slamName string, slam slam.Service) (base.KinematicBase, error) {
 	var err error
+	wb, ok := utils.UnwrapProxy(base).(*wheeledBase)
+	if !ok {
+		return nil, errors.Errorf("could not interpret base of type %T as a wheeledBase", base)
+	}
 	kwb := &kinematicWheeledBase{
-		wheeledBase: base,
+		wheeledBase: wb,
 		slam:        slam,
 		slamName:    slamName,
 	}
@@ -74,7 +78,6 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	currentPt := currentPose.Point()
 	desiredHeading := math.Atan2(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
 	distance := math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-
 
 	// TODO: we do want the pitch here but this is domain limited to -90 to 90, need math to fix this
 	heading := utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
