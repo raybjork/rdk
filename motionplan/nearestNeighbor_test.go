@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
@@ -23,7 +24,9 @@ func TestNearestNeighbor(t *testing.T) {
 
 	seed := []referenceframe.Input{{23.1}}
 	// test serial NN
-	opt := newBasicPlannerOptions()
+	frame, err := referenceframe.NewTranslationalFrame("", r3.Vector{X: 1}, referenceframe.Limit{Min: 0, Max: 100000})
+	test.That(t, err, test.ShouldBeNil)
+	opt := newBasicPlannerOptions(frame)
 	nn := nm.nearestNeighbor(ctx, opt, seed, rrtMap)
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 23.0)
 

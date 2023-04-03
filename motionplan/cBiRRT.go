@@ -359,7 +359,6 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			EndPosition:        goalPos,
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
-			Frame:              mp.frame,
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
@@ -382,7 +381,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
-			&SegmentInput{StartConfiguration: seedInputs, EndConfiguration: solved, Frame: mp.frame},
+			&SegmentInput{StartConfiguration: seedInputs, EndConfiguration: solved},
 			mp.planOpts.Resolution,
 		)
 		if ok {

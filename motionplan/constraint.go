@@ -19,38 +19,29 @@ type SegmentInput struct {
 	EndPosition        spatial.Pose
 	StartConfiguration []referenceframe.Input
 	EndConfiguration   []referenceframe.Input
-	Frame              referenceframe.Frame
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *SegmentInput) resolveInputsToPositions() error {
+func (ci *SegmentInput) resolveInputsToPositions(frame referenceframe.Frame) error {
 	if ci.StartPosition == nil {
-		if ci.Frame != nil {
-			if ci.StartConfiguration != nil {
-				pos, err := ci.Frame.Transform(ci.StartConfiguration)
-				if err == nil {
-					ci.StartPosition = pos
-				} else {
-					return err
-				}
+		if ci.StartConfiguration != nil {
+			pos, err := frame.Transform(ci.StartConfiguration)
+			if err == nil {
+				ci.StartPosition = pos
 			} else {
-				return errors.New("invalid constraint input")
+				return err
 			}
 		} else {
 			return errors.New("invalid constraint input")
 		}
 	}
 	if ci.EndPosition == nil {
-		if ci.Frame != nil {
-			if ci.EndConfiguration != nil {
-				pos, err := ci.Frame.Transform(ci.EndConfiguration)
-				if err == nil {
-					ci.EndPosition = pos
-				} else {
-					return err
-				}
+		if ci.EndConfiguration != nil {
+			pos, err := frame.Transform(ci.EndConfiguration)
+			if err == nil {
+				ci.EndPosition = pos
 			} else {
-				return errors.New("invalid constraint input")
+				return err
 			}
 		} else {
 			return errors.New("invalid constraint input")
@@ -65,22 +56,17 @@ func (ci *SegmentInput) resolveInputsToPositions() error {
 type StateInput struct {
 	Position      spatial.Pose
 	Configuration []referenceframe.Input
-	Frame         referenceframe.Frame
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *StateInput) resolveInputsToPositions() error {
+func (ci *StateInput) resolveInputsToPositions(frame referenceframe.Frame) error {
 	if ci.Position == nil {
-		if ci.Frame != nil {
-			if ci.Configuration != nil {
-				pos, err := ci.Frame.Transform(ci.Configuration)
-				if err == nil {
-					ci.Position = pos
-				} else {
-					return err
-				}
+		if ci.Configuration != nil {
+			pos, err := frame.Transform(ci.Configuration)
+			if err == nil {
+				ci.Position = pos
 			} else {
-				return errors.New("invalid constraint input")
+				return err
 			}
 		} else {
 			return errors.New("invalid constraint input")
@@ -100,8 +86,18 @@ type StateConstraint func(*StateInput) bool
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintHandler struct {
+	frame              referenceframe.Frame
 	segmentConstraints map[string]SegmentConstraint
 	stateConstraints   map[string]StateConstraint
+}
+
+// NewConstraintHandler constructs an empty constraint handler to act on the given frame
+func NewConstraintHandler(frame referenceframe.Frame) *ConstraintHandler {
+	return &ConstraintHandler{
+		frame:              frame,
+		segmentConstraints: make(map[string]SegmentConstraint),
+		stateConstraints:   make(map[string]StateConstraint),
+	}
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
@@ -138,7 +134,7 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *SegmentInput) (bool
 // part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput, resolution float64) (bool, *SegmentInput) {
 	// ensure we have cartesian positions
-	err := ci.resolveInputsToPositions()
+	err := ci.resolveInputsToPositions(c.frame)
 	if err != nil {
 		return false, nil
 	}
@@ -149,8 +145,8 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput,
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
 		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
-		interpC := &StateInput{Frame: ci.Frame, Configuration: interpConfig}
-		err = interpC.resolveInputsToPositions()
+		interpC := &StateInput{Configuration: interpConfig}
+		err = interpC.resolveInputsToPositions(c.frame)
 		if err != nil {
 			return false, nil
 		}
@@ -190,9 +186,6 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *SegmentInput, 
 // AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
 func (c *ConstraintHandler) AddStateConstraint(name string, cons StateConstraint) {
-	if c.stateConstraints == nil {
-		c.stateConstraints = map[string]StateConstraint{}
-	}
 	c.stateConstraints[name] = cons
 }
 
@@ -213,9 +206,6 @@ func (c *ConstraintHandler) StateConstraints() []string {
 // AddSegmentConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
 func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstraint) {
-	if c.segmentConstraints == nil {
-		c.segmentConstraints = map[string]SegmentConstraint{}
-	}
 	c.segmentConstraints[name] = cons
 }
 
@@ -280,6 +270,7 @@ func createAllCollisionConstraints(
 	// create constraint to keep moving geometries from hitting world state obstacles
 	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
 	obstacleConstraint, err := newCollisionConstraint(
+		frame,
 		movingGeometries.Geometries(),
 		obstacles.Geometries(),
 		allowedCollisions,
@@ -290,13 +281,13 @@ func createAllCollisionConstraints(
 	}
 
 	// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-	robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
+	robotConstraint, err := newCollisionConstraint(frame, movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
 	if err != nil {
 		return nil, err
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
-	selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
+	selfCollisionConstraint, err := newCollisionConstraint(frame, movingGeometries.Geometries(), nil, allowedCollisions, false)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +303,7 @@ func createAllCollisionConstraints(
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func newCollisionConstraint(
+	frame referenceframe.Frame,
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
@@ -327,7 +319,7 @@ func newCollisionConstraint(
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateInput) bool {
-		internal, err := state.Frame.Geometries(state.Configuration)
+		internal, err := frame.Geometries(state.Configuration)
 		if err != nil && internal == nil {
 			return false
 		}
@@ -345,9 +337,13 @@ func newCollisionConstraint(
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, StateMetric) {
-	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
-	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
+func NewAbsoluteLinearInterpolatingConstraint(
+	frame referenceframe.Frame,
+	from, to spatial.Pose,
+	linTol, orientTol float64,
+) (StateConstraint, StateMetric) {
+	orientConstraint, orientMetric := NewSlerpOrientationConstraint(frame, from, to, orientTol)
+	lineConstraint, lineMetric := NewLineConstraint(frame, from.Point(), to.Point(), linTol)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
 	f := func(state *StateInput) bool {
@@ -358,17 +354,20 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 
 // NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
-func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, StateMetric) {
+func NewProportionalLinearInterpolatingConstraint(
+	frame referenceframe.Frame,
+	from, to spatial.Pose,
+	epsilon float64,
+) (StateConstraint, StateMetric) {
 	orientTol := epsilon * orientDist(from.Orientation(), to.Orientation())
 	linTol := epsilon * from.Point().Distance(to.Point())
-
-	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
+	return NewAbsoluteLinearInterpolatingConstraint(frame, from, to, linTol, orientTol)
 }
 
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
 // returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as
 // well as a metric which returns the distance to that valid region.
-func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
+func NewSlerpOrientationConstraint(frame referenceframe.Frame, start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
 	gradFunc := func(state *StateInput) float64 {
@@ -384,7 +383,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 	}
 
 	validFunc := func(state *StateInput) bool {
-		err := state.resolveInputsToPositions()
+		err := state.resolveInputsToPositions(frame)
 		if err != nil {
 			return false
 		}
@@ -399,7 +398,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere segment length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose.
-func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, StateMetric) {
+func NewPlaneConstraint(frame referenceframe.Frame, pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, StateMetric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
 
@@ -422,7 +421,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	}
 
 	validFunc := func(state *StateInput) bool {
-		err := state.resolveInputsToPositions()
+		err := state.resolveInputsToPositions(frame)
 		if err != nil {
 			return false
 		}
@@ -436,7 +435,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
-func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, StateMetric) {
+func NewLineConstraint(frame referenceframe.Frame, pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, StateMetric) {
 	if pt1.Distance(pt2) < defaultEpsilon {
 		tolerance = defaultEpsilon
 	}
@@ -446,7 +445,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	}
 
 	validFunc := func(state *StateInput) bool {
-		err := state.resolveInputsToPositions()
+		err := state.resolveInputsToPositions(frame)
 		if err != nil {
 			return false
 		}

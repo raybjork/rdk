@@ -62,7 +62,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	if planOpts == nil {
-		planOpts = newBasicPlannerOptions()
+		planOpts = newBasicPlannerOptions(mp.frame)
 	}
 	planOpts.SetGoalMetric(NewSquaredNormMetric(goal))
 
@@ -261,7 +261,6 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 			EndPosition:        pose2,
 			StartConfiguration: input1,
 			EndConfiguration:   input2,
-			Frame:              mp.frame,
 		}
 
 		if ok, _ := planOpts.CheckSegmentAndStateValidity(ci, mp.Resolution()); !ok {

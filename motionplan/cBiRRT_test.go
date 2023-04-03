@@ -37,7 +37,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(m)
 	opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)

@@ -226,20 +226,13 @@ func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *pl
 }
 
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	ok, _ := mp.planOpts.CheckStateConstraints(&StateInput{
-		Configuration: inputs,
-		Frame:         mp.frame,
-	})
+	ok, _ := mp.planOpts.CheckStateConstraints(&StateInput{Configuration: inputs})
 	return ok
 }
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
-		&SegmentInput{
-			StartConfiguration: seedInputs,
-			EndConfiguration:   target,
-			Frame:              mp.frame,
-		},
+		&SegmentInput{StartConfiguration: seedInputs, EndConfiguration: target},
 		mp.planOpts.Resolution,
 	)
 	return ok
@@ -340,16 +333,12 @@ IK:
 		select {
 		case step := <-solutionGen:
 			// Ensure the end state is a valid one
-			statePass, failName := mp.planOpts.CheckStateConstraints(&StateInput{
-				Configuration: step,
-				Frame:         mp.frame,
-			})
+			statePass, failName := mp.planOpts.CheckStateConstraints(&StateInput{Configuration: step})
 			if statePass {
 				stepArc := &SegmentInput{
 					StartConfiguration: seed,
 					StartPosition:      seedPos,
 					EndConfiguration:   step,
-					Frame:              mp.frame,
 				}
 				arcPass, failName := mp.planOpts.CheckSegmentConstraints(stepArc)
 

@@ -38,7 +38,7 @@ func newPlanManager(
 	seed int,
 ) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
+	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions(frame))
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +412,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	to = fixOvIncrement(to, from)
 
 	// Start with normal options
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(pm.frame)
 	opt.SetGoalMetric(NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts
@@ -490,7 +490,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			orientTol = defaultOrientationDeviation
 		}
-		constraint, pathMetric := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
+		constraint, pathMetric := NewAbsoluteLinearInterpolatingConstraint(pm.frame, from, to, linTol, orientTol)
 		opt.AddStateConstraint(defaultLinearConstraintName, constraint)
 		opt.pathMetric = pathMetric
 	case PseudolinearMotionProfile:
@@ -499,7 +499,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			tolerance = defaultPseudolinearTolerance
 		}
-		constraint, pathMetric := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
+		constraint, pathMetric := NewProportionalLinearInterpolatingConstraint(pm.frame, from, to, tolerance)
 		opt.AddStateConstraint(defaultPseudolinearConstraintName, constraint)
 		opt.pathMetric = pathMetric
 	case OrientationMotionProfile:
@@ -508,7 +508,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			tolerance = defaultOrientationDeviation
 		}
-		constraint, pathMetric := NewSlerpOrientationConstraint(from, to, tolerance)
+		constraint, pathMetric := NewSlerpOrientationConstraint(pm.frame, from, to, tolerance)
 		opt.AddStateConstraint(defaultOrientationConstraintName, constraint)
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:

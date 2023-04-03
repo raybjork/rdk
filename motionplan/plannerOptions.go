@@ -5,6 +5,7 @@ import (
 
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -67,8 +68,9 @@ const (
 )
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func newBasicPlannerOptions() *plannerOptions {
+func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt := &plannerOptions{}
+	opt.ConstraintHandler = *NewConstraintHandler(frame)
 	opt.goalArcScore = JointMetric
 	opt.DistanceFunc = L2InputMetric
 	opt.pathMetric = NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
@@ -177,7 +179,7 @@ func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbCon
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
+	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(p.frame, from, to, float64(linTol), float64(orientTol))
 	p.AddStateConstraint(defaultLinearConstraintName, constraint)
 
 	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
@@ -188,7 +190,7 @@ func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, 
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist := NewSlerpOrientationConstraint(from, to, float64(orientTol))
+	constraint, pathDist := NewSlerpOrientationConstraint(p.frame, from, to, float64(orientTol))
 	p.AddStateConstraint(defaultLinearConstraintName, constraint)
 	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
 }

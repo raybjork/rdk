@@ -89,8 +89,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
 		return errBadBounds
 	}
-	mInput := &StateInput{Frame: ik.model}
-
+	
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
@@ -107,8 +106,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			ik.logger.Errorw("forcestop error", "error", err)
 			return 0
 		}
-		mInput.Configuration = inputs
-		mInput.Position = eePos
+		mInput := &StateInput{Configuration: inputs,Position:      eePos}
 		dist := m(mInput)
 
 		if len(gradient) > 0 {

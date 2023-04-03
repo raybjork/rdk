@@ -22,7 +22,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, newBasicPlannerOptions())
+	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, newBasicPlannerOptions(m))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -38,7 +38,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(m)
 	opt.SetGoalMetric(NewPositionOnlyMetric(pos))
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
@@ -54,11 +54,11 @@ func TestConstraintPath(t *testing.T) {
 	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
-	ci := &SegmentInput{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
-	err = ci.resolveInputsToPositions()
+	ci := &SegmentInput{StartConfiguration: homePos, EndConfiguration: toPos}
+	err = ci.resolveInputsToPositions(modelXarm)
 	test.That(t, err, test.ShouldBeNil)
 
-	handler := &ConstraintHandler{}
+	handler := NewConstraintHandler(modelXarm)
 
 	// No constraints, should pass
 	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
@@ -66,7 +66,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
-	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01)
+	constraint, _ := NewProportionalLinearInterpolatingConstraint(modelXarm, ci.StartPosition, ci.EndPosition, 0.01)
 	handler.AddStateConstraint("interp", constraint)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
@@ -75,8 +75,8 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, len(handler.StateConstraints()), test.ShouldEqual, 1)
 
 	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
-	ciBad := &SegmentInput{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
-	err = ciBad.resolveInputsToPositions()
+	ciBad := &SegmentInput{StartConfiguration: homePos, EndConfiguration: badInterpPos}
+	err = ciBad.resolveInputsToPositions(modelXarm)
 	test.That(t, err, test.ShouldBeNil)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
@@ -131,15 +131,14 @@ func TestLineFollow(t *testing.T) {
 		OY: -1,
 	})
 
-	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), 0.001)
-
-	pointGrad := gradFunc(&StateInput{Position: query})
-	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
-
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+
+	validFunc, gradFunc := NewLineConstraint(m, p1.Point(), p2.Point(), 0.001)
+	pointGrad := gradFunc(&StateInput{Position: query})
+	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -154,22 +153,17 @@ func TestLineFollow(t *testing.T) {
 	sf, err := newSolverFrame(fs, markerFrame.Name(), goalFrame.Name(), frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(sf)
 	opt.SetPathMetric(gradFunc)
 	opt.AddStateConstraint("whiteboard", validFunc)
 
 	ok, lastGood := opt.CheckSegmentAndStateValidity(
-		&SegmentInput{
-			StartConfiguration: sf.InputFromProtobuf(mp1),
-			EndConfiguration:   sf.InputFromProtobuf(mp2),
-			Frame:              sf,
-		},
+		&SegmentInput{StartConfiguration: sf.InputFromProtobuf(mp1), EndConfiguration: sf.InputFromProtobuf(mp2)},
 		1,
 	)
 	test.That(t, ok, test.ShouldBeFalse)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
-	lastGood.Frame = sf
-	stateCheck := &StateInput{Configuration: lastGood.StartConfiguration, Frame: lastGood.Frame}
+	stateCheck := &StateInput{Configuration: lastGood.StartConfiguration}
 	pass, _ := opt.CheckStateConstraints(stateCheck)
 	test.That(t, pass, test.ShouldBeTrue)
 
@@ -217,7 +211,7 @@ func TestCollisionConstraints(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	handler := &ConstraintHandler{}
+	handler := NewConstraintHandler(model)
 	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
@@ -227,7 +221,7 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, failName := handler.CheckStateConstraints(&StateInput{Configuration: c.input, Frame: model})
+			response, failName := handler.CheckStateConstraints(&StateInput{Configuration: c.input})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)
 		})
@@ -255,7 +249,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
-	handler := &ConstraintHandler{}
+	handler := NewConstraintHandler(model)
 	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
@@ -268,7 +262,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		b1, _ = handler.CheckStateConstraints(&StateInput{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		b1, _ = handler.CheckStateConstraints(&StateInput{Configuration: frame.FloatsToInputs(rfloats)})
 	}
 	bt = b1
 }
