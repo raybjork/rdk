@@ -19,10 +19,10 @@ type Config struct {
 	Name                      string
 	API                       API
 	Model                     Model
-	Frame                     *referenceframe.LinkConfig
 	DependsOn                 []string
 	AssociatedResourceConfigs []AssociatedResourceConfig
 	Attributes                utils.AttributeMap
+	*referenceframe.FrameConfig
 
 	ConvertedAttributes ConfigValidator
 	ImplicitDependsOn   []string
@@ -38,10 +38,10 @@ type typeSpecificConfigData struct {
 	Namespace                 string                     `json:"namespace"`
 	Subtype                   string                     `json:"type"`
 	Model                     Model                      `json:"model"`
-	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
+	*referenceframe.FrameConfig
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -49,10 +49,10 @@ type configData struct {
 	Name                      string                     `json:"name"`
 	API                       API                        `json:"api"`
 	Model                     Model                      `json:"model"`
-	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
+	*referenceframe.FrameConfig
 }
 
 // UnmarshalJSON unmarshals JSON into the config.
@@ -69,7 +69,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 		conf.Name = confData.Name
 		conf.API = confData.API
 		conf.Model = confData.Model
-		conf.Frame = confData.Frame
+		conf.FrameConfig = confData.FrameConfig
 		conf.DependsOn = confData.DependsOn
 		conf.AssociatedResourceConfigs = confData.AssociatedResourceConfigs
 		conf.Attributes = confData.Attributes
@@ -84,7 +84,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 	// this will get adjusted later
 	conf.API = APINamespace(typeSpecificConf.Namespace).WithType("").WithSubtype(typeSpecificConf.Subtype)
 	conf.Model = typeSpecificConf.Model
-	conf.Frame = typeSpecificConf.Frame
+	conf.FrameConfig = typeSpecificConf.FrameConfig
 	conf.DependsOn = typeSpecificConf.DependsOn
 	conf.AssociatedResourceConfigs = typeSpecificConf.AssociatedResourceConfigs
 	conf.Attributes = typeSpecificConf.Attributes
@@ -97,7 +97,7 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 		Name:                      conf.Name,
 		API:                       conf.API,
 		Model:                     conf.Model,
-		Frame:                     conf.Frame,
+		FrameConfig:               conf.FrameConfig,
 		DependsOn:                 conf.DependsOn,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Attributes:                conf.Attributes,

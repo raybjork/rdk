@@ -111,8 +111,8 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 		Attributes:     attributes,
 	}
 
-	if conf.Frame != nil {
-		frame, err := FrameConfigToProto(*conf.Frame)
+	if conf.FrameConfig != nil {
+		frame, err := FrameConfigToProto(*conf.FrameConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame to proto config")
 		}
@@ -163,7 +163,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame from proto config")
 		}
-		componentConf.Frame = frame
+		componentConf.FrameConfig = frame
 	}
 
 	return &componentConf, nil
