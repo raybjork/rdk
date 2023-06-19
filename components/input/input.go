@@ -37,7 +37,6 @@ func Named(name string) resource.Name {
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
 	resource.Resource
-	resource.Shaped
 
 	// Controls returns a list of Controls provided by the Controller
 	Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error)

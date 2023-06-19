@@ -148,7 +148,7 @@ type triviallyShaped struct {
 }
 
 func TriviallyShaped(cfg Config) Shaped {
-	return &triviallyShaped{geometries: nil}
+	return &triviallyShaped{geometries: []spatialmath.Geometry{}}
 }
 
 func (t triviallyShaped) Geometries(context.Context) ([]spatialmath.Geometry, error) {

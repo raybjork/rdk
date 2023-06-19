@@ -38,7 +38,6 @@ func Named(name string) resource.Name {
 // An AudioInput is a resource that can capture audio.
 type AudioInput interface {
 	resource.Resource
-	resource.Shaped
 	AudioSource
 }
 

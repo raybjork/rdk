@@ -34,7 +34,6 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 type Servo interface {
 	resource.Resource
 	resource.Actuator
-	resource.Shaped
 
 	// Move moves the servo to the given angle (0-180 degrees)
 	// This will block until done or a new operation cancels this one

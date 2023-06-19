@@ -38,7 +38,6 @@ func Named(name string) resource.Name {
 type Gripper interface {
 	resource.Resource
 	resource.Actuator
-	resource.Shaped
 	referenceframe.ModelFramer
 
 	// Open opens the gripper.

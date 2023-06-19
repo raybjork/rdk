@@ -60,7 +60,6 @@ func (t PositionType) String() string {
 // A Encoder turns a position into a signal.
 type Encoder interface {
 	resource.Resource
-	resource.Shaped
 
 	// Position returns the current position in terms of ticks or degrees, and whether it is a relative or absolute position.
 	Position(ctx context.Context, positionType PositionType, extra map[string]interface{}) (float64, PositionType, error)

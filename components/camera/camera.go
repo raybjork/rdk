@@ -65,7 +65,6 @@ type Properties struct {
 // A Camera is a resource that can capture frames.
 type Camera interface {
 	resource.Resource
-	resource.Shaped
 	VideoSource
 }
 

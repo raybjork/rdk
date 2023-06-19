@@ -12,6 +12,7 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements GantryServiceClient.
@@ -108,6 +109,10 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
+}
+
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return rprotoutils.GeometriesFromResourceClient(ctx, c.client, c.name)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

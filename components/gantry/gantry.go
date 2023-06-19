@@ -44,7 +44,6 @@ func Named(name string) resource.Name {
 type Gantry interface {
 	resource.Resource
 	resource.Actuator
-	resource.Shaped
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 

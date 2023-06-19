@@ -12,6 +12,7 @@ import (
 	genericpb "go.viam.com/api/component/generic/v1"
 
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -121,10 +122,17 @@ func MessageToProtoV1(msg interface{}) protov1.Message {
 	return nil
 }
 
+// ClientDoCommander is a gRPC client that allows the execution of DoCommand.
+type ClientDoCommander interface {
+	// DoCommand sends/receives arbitrary commands
+	DoCommand(ctx context.Context, in *commonpb.DoCommandRequest,
+		opts ...grpc.CallOption) (*commonpb.DoCommandResponse, error)
+}
+
 // DoFromResourceClient is a helper to allow DoCommand() calls from any client.
 func DoFromResourceClient(
 	ctx context.Context,
-	svc genericpb.GenericServiceClient,
+	svc ClientDoCommander,
 	name string, cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	command, err := protoutils.StructToStructPb(cmd)

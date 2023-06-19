@@ -39,7 +39,6 @@ func Named(name string) resource.Name {
 // of some thing that it is sensing.
 type Sensor interface {
 	resource.Resource
-	resource.Shaped
 	// Readings return data specific to the type of sensor and can be of any type.
 	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 }
