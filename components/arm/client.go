@@ -158,11 +158,7 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
-	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: c.name})
-	if err != nil {
-		return nil, err
-	}
-	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+	return rprotoutils.GeometriesFromResourceClient(ctx, c.client, c.name)
 }
 
 func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, error) {

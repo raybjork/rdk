@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client is an audio input client.
@@ -177,6 +178,10 @@ func (c *client) MediaProperties(ctx context.Context) (prop.Audio, error) {
 		IsFloat:       resp.IsFloat,
 		IsInterleaved: resp.IsInterleaved,
 	}, nil
+}
+
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return protoutils.GeometriesFromResourceClient(ctx, c.client, c.name)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

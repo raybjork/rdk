@@ -9,6 +9,7 @@ import (
 	//nolint:staticcheck
 	protov1 "github.com/golang/protobuf/proto"
 	commonpb "go.viam.com/api/common/v1"
+	v1 "go.viam.com/api/common/v1"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -160,4 +161,29 @@ func DoFromResourceServer(
 		return nil, err
 	}
 	return &commonpb.DoCommandResponse{Result: pbRes}, nil
+}
+
+type ClientShaped interface {
+	// GetGeometries returns the geometries of the component in their current configuration
+	GetGeometries(ctx context.Context, in *commonpb.GetGeometriesRequest, opts ...grpc.CallOption) (*v1.GetGeometriesResponse, error)
+}
+
+func GeometriesFromResourceClient(ctx context.Context, svc ClientShaped, name string) ([]spatialmath.Geometry, error) {
+	resp, err := svc.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: name})
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+}
+
+func GeometriesFromResourceServer(
+	ctx context.Context,
+	res resource.Shaped,
+	req *commonpb.GetGeometriesRequest,
+) (*commonpb.GetGeometriesResponse, error) {
+	geometries, err := res.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }
