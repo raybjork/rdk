@@ -9,9 +9,9 @@ import (
 	//nolint:staticcheck
 	protov1 "github.com/golang/protobuf/proto"
 	commonpb "go.viam.com/api/common/v1"
-	v1 "go.viam.com/api/common/v1"
+	genericpb "go.viam.com/api/component/generic/v1"
+
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -121,16 +121,11 @@ func MessageToProtoV1(msg interface{}) protov1.Message {
 	return nil
 }
 
-// ClientDoCommander is a gRPC client that allows the execution of DoCommand.
-type ClientDoCommander interface {
-	// DoCommand sends/receives arbitrary commands
-	DoCommand(ctx context.Context, in *commonpb.DoCommandRequest,
-		opts ...grpc.CallOption) (*commonpb.DoCommandResponse, error)
-}
-
 // DoFromResourceClient is a helper to allow DoCommand() calls from any client.
-func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name string,
-	cmd map[string]interface{},
+func DoFromResourceClient(
+	ctx context.Context,
+	svc genericpb.GenericServiceClient,
+	name string, cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
@@ -163,12 +158,7 @@ func DoFromResourceServer(
 	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }
 
-type ClientShaped interface {
-	// GetGeometries returns the geometries of the component in their current configuration
-	GetGeometries(ctx context.Context, in *commonpb.GetGeometriesRequest, opts ...grpc.CallOption) (*v1.GetGeometriesResponse, error)
-}
-
-func GeometriesFromResourceClient(ctx context.Context, svc ClientShaped, name string) ([]spatialmath.Geometry, error) {
+func GeometriesFromResourceClient(ctx context.Context, svc genericpb.GenericServiceClient, name string) ([]spatialmath.Geometry, error) {
 	resp, err := svc.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: name})
 	if err != nil {
 		return nil, err

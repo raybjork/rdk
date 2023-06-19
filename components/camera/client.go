@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -203,6 +204,10 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	}
 	result.DistortionParams = distorter
 	return result, nil
+}
+
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return protoutils.GeometriesFromResourceClient(ctx, c.client, c.name)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
-	"go.viam.com/utils/protoutils"
+	rdkutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/resource"
@@ -41,17 +41,9 @@ func NewClientFromConn(
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := protoutils.StructToStructPb(cmd)
-	if err != nil {
-		return nil, err
-	}
+	return rdkutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
 
-	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return rdkutils.GeometriesFromResourceClient(ctx, c.client, c.name)
 }

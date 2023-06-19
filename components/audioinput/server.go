@@ -17,6 +17,7 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioinput/v1"
+	rdkutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -306,6 +307,14 @@ func (s *serviceServer) Record(
 		ContentType: "audio/wav",
 		Data:        rd,
 	}, nil
+}
+
+func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rdkutils.GeometriesFromResourceServer(ctx, res, req)
 }
 
 // DoCommand receives arbitrary commands.

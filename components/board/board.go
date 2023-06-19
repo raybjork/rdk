@@ -51,7 +51,8 @@ func Named(name string) resource.Name {
 // components such as analog readers, and digital interrupts.
 type Board interface {
 	resource.Resource
-
+	resource.Shaped
+	
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 

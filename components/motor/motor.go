@@ -38,6 +38,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 type Motor interface {
 	resource.Resource
 	resource.Actuator
+	resource.Shaped
 
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational

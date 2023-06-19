@@ -143,6 +143,18 @@ type Shaped interface {
 	Geometries(context.Context) ([]spatialmath.Geometry, error)
 }
 
+type triviallyShaped struct {
+	geometries []spatialmath.Geometry
+}
+
+func TriviallyShaped(cfg Config) Shaped {
+	return &triviallyShaped{geometries: nil}
+}
+
+func (t triviallyShaped) Geometries(context.Context) ([]spatialmath.Geometry, error) {
+	return t.geometries, nil
+}
+
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
 var ErrDoUnimplemented = errors.New("DoCommand unimplemented")
 
