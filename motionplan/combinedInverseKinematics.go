@@ -112,7 +112,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-		}
+		}	
 
 		err = <-errChan
 		returned++

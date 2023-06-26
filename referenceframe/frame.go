@@ -270,24 +270,29 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (sf staticFrame) MarshalJSON() ([]byte, error) {
-	temp := LinkConfig{
-		ID:          sf.name,
-		Translation: sf.transform.Point(),
-	}
-
 	orientationConfig, err := spatial.NewOrientationConfig(sf.transform.Orientation())
 	if err != nil {
 		return nil, err
 	}
-	temp.Orientation = orientationConfig
 
+	link := &LinkConfig{
+		ID:          sf.name,
+		Translation: sf.transform.Point(),
+		Orientation: orientationConfig,
+	}
+
+	geometryConfig := &spatial.GeometryConfig{}
 	if sf.geometry != nil {
-		temp.Geometry, err = spatial.NewGeometryConfig(sf.geometry)
+		geometryConfig, err = spatial.NewGeometryConfig(sf.geometry)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return json.Marshal(temp)
+
+	return json.Marshal(FrameConfig{
+		Link:       link,
+		Geometries: []*spatial.GeometryConfig{geometryConfig},
+	})
 }
 
 func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {

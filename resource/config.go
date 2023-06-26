@@ -22,7 +22,7 @@ type Config struct {
 	DependsOn                 []string
 	AssociatedResourceConfigs []AssociatedResourceConfig
 	Attributes                utils.AttributeMap
-	*referenceframe.FrameConfig
+	Frame                     *referenceframe.FrameConfig
 
 	ConvertedAttributes ConfigValidator
 	ImplicitDependsOn   []string
@@ -84,7 +84,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 	// this will get adjusted later
 	conf.API = APINamespace(typeSpecificConf.Namespace).WithType("").WithSubtype(typeSpecificConf.Subtype)
 	conf.Model = typeSpecificConf.Model
-	conf.FrameConfig = typeSpecificConf.FrameConfig
+	conf.Frame = typeSpecificConf.FrameConfig
 	conf.DependsOn = typeSpecificConf.DependsOn
 	conf.AssociatedResourceConfigs = typeSpecificConf.AssociatedResourceConfigs
 	conf.Attributes = typeSpecificConf.Attributes
@@ -97,7 +97,7 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 		Name:                      conf.Name,
 		API:                       conf.API,
 		Model:                     conf.Model,
-		FrameConfig:               conf.FrameConfig,
+		FrameConfig:               conf.Frame,
 		DependsOn:                 conf.DependsOn,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Attributes:                conf.Attributes,

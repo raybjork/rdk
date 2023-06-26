@@ -283,10 +283,12 @@ func TestStatusClient(t *testing.T) {
 			{
 				Name: "a",
 				API:  arm.API,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      "b",
-					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-					Orientation: o1Cfg,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent:      "b",
+						Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+						Orientation: o1Cfg,
+					},
 				},
 			},
 			{

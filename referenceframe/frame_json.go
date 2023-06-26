@@ -16,7 +16,7 @@ const (
 )
 
 type FrameConfig struct {
-	Link       LinkConfig                    `json:"frame,omitempty"`
+	Link       *LinkConfig                   `json:"frame,omitempty"`
 	Geometries []*spatialmath.GeometryConfig `json:"geometries,omitempty"`
 }
 
@@ -51,8 +51,8 @@ type DHParamConfig struct {
 	Geometry *spatialmath.GeometryConfig `json:"geometry,omitempty"`
 }
 
-// NewLinkConfig constructs a config from a Frame.
-func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
+// NewFrameConfig constructs a config from a Frame.
+func NewFrameConfig(frame staticFrame) (*FrameConfig, error) {
 	var geom *spatialmath.GeometryConfig
 	orient, err := spatialmath.NewOrientationConfig(frame.transform.Orientation())
 	if err != nil {
@@ -64,31 +64,36 @@ func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
 			return nil, err
 		}
 	}
-	return &LinkConfig{
-		ID:          frame.name,
-		Translation: frame.transform.Point(),
-		Orientation: orient,
-		Geometry:    geom,
+	return &FrameConfig{
+		Link: &LinkConfig{
+			ID:          frame.name,
+			Translation: frame.transform.Point(),
+			Orientation: orient,
+		},
+		Geometries: []*spatialmath.GeometryConfig{geom},
 	}, nil
 }
 
-// ParseConfig converts a LinkConfig into a staticFrame.
-func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
+// ParseConfig converts a FrameConfig into a staticFrame.
+func (cfg *FrameConfig) ParseConfig() (*LinkInFrame, error) {
 	pose, err := cfg.Pose()
 	if err != nil {
 		return nil, err
 	}
-	var geom spatialmath.Geometry
-	if cfg.Geometry != nil {
-		geom, err = cfg.Geometry.ParseConfig()
-		if err != nil {
-			return nil, err
-		}
-		if geom.Label() == "" {
-			geom.SetLabel(cfg.ID)
+	var geometries []spatialmath.Geometry
+	if cfg.Geometries != nil {
+		for _, cfgGeometry := range cfg.Geometries {
+			geo, err := cfgGeometry.ParseConfig()
+			if err != nil {
+				return nil, err
+			}
+			if geo.Label() == "" {
+				geo.SetLabel(cfg.ID)
+			}
+			geometries = append(geometries, geo)
 		}
 	}
-	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
+	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geometries), nil
 }
 
 // Pose will parse out the Pose of a LinkConfig and return it if it is valid.

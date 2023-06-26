@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -137,16 +138,20 @@ func TestConfigRemote(t *testing.T) {
 				Name:  "foo",
 				API:   base.API,
 				Model: fakeModel,
-				Frame: &referenceframe.LinkConfig{
-					Parent: referenceframe.World,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent: referenceframe.World,
+					},
 				},
 			},
 			{
 				Name:  "myParentIsRemote",
 				API:   base.API,
 				Model: fakeModel,
-				Frame: &referenceframe.LinkConfig{
-					Parent: "foo:cameraOver",
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent: "foo:cameraOver",
+					},
 				},
 			},
 		},

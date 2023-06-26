@@ -41,12 +41,14 @@ func TestNewFrameSystemFromConfig(t *testing.T) {
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
 
-	l1 := &referenceframe.LinkConfig{
-		ID:          "frame1",
-		Parent:      referenceframe.World,
-		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-		Orientation: o1Cfg,
-		Geometry:    &spatialmath.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	l1 := &referenceframe.FrameConfig{
+		Link: &referenceframe.LinkConfig{
+			ID:          "frame1",
+			Parent:      referenceframe.World,
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+			Orientation: o1Cfg,
+		},
+		Geometries: []*spatialmath.GeometryConfig{{Type: "box", X: 1, Y: 2, Z: 1}},
 	}
 	lif1, err := l1.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
@@ -309,16 +311,20 @@ func TestServiceWithRemote(t *testing.T) {
 				Name:  "foo",
 				API:   base.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: referenceframe.World,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent: referenceframe.World,
+					},
 				},
 			},
 			{
 				Name:  "myParentIsRemote",
 				API:   gripper.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: "bar:pieceArm",
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent: "bar:pieceArm",
+					},
 				},
 			},
 		},
