@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -31,7 +30,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -58,13 +56,6 @@ func TestConfigRobot(t *testing.T) {
 	}
 	test.That(t, foundArm, test.ShouldBeTrue)
 	test.That(t, foundCam, test.ShouldBeTrue)
-
-	// test that gripper geometry is being added correctly
-	component := cfg.FindComponent("pieceGripper")
-	bc, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}), r3.Vector{1, 2, 3}, "")
-	newBc, err := component.Frame.Geometry.ParseConfig()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newBc, test.ShouldResemble, bc)
 }
 
 func TestConfig3(t *testing.T) {

@@ -150,7 +150,7 @@ func TestSerializationStatic(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2Cfg := &LinkConfig{}
+	f2Cfg := &FrameConfig{}
 	err = json.Unmarshal(data, f2Cfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -226,7 +226,7 @@ func TestFrame(t *testing.T) {
 	err = json.Unmarshal(data, &testMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	frame := LinkConfig{}
+	frame := FrameConfig{}
 	err = json.Unmarshal(testMap["test"], &frame)
 	test.That(t, err, test.ShouldBeNil)
 	bc, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), r3.Vector{1, 2, 3}, "")
@@ -244,7 +244,7 @@ func TestFrame(t *testing.T) {
 	// test going back to json and validating.
 	rd, err := json.Marshal(&frame)
 	test.That(t, err, test.ShouldBeNil)
-	frame2 := LinkConfig{}
+	frame2 := FrameConfig{}
 	err = json.Unmarshal(rd, &frame2)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -761,22 +761,23 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
-
 		if component.Name == referenceframe.World {
 			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
 		}
-		if component.Frame.Parent == "" {
+		if component.Frame.Link == nil || component.Frame.Link.Parent == "" {
 			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
 		}
-		cfgCopy := &referenceframe.LinkConfig{
-			ID:          component.Frame.ID,
-			Translation: component.Frame.Translation,
-			Orientation: component.Frame.Orientation,
-			Geometry:    component.Frame.Geometry,
-			Parent:      component.Frame.Parent,
+		cfgCopy := &referenceframe.FrameConfig{
+			Link: &referenceframe.LinkConfig{
+				ID:          component.Frame.Link.ID,
+				Translation: component.Frame.Link.Translation,
+				Orientation: component.Frame.Link.Orientation,
+				Parent:      component.Frame.Link.Parent,
+			},
+			Geometries: component.Frame.Geometries,
 		}
-		if cfgCopy.ID == "" {
-			cfgCopy.ID = component.Name
+		if cfgCopy.Link.ID == "" {
+			cfgCopy.Link.ID = component.Name
 		}
 		model, err := r.extractModelFrameJSON(component.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {

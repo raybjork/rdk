@@ -250,13 +250,13 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 type Remote struct {
 	Name                      string
 	Address                   string
-	Frame                     *referenceframe.LinkConfig
 	Auth                      RemoteAuth
 	ManagedBy                 string
 	Insecure                  bool
 	ConnectionCheckInterval   time.Duration
 	ReconnectInterval         time.Duration
 	AssociatedResourceConfigs []resource.AssociatedResourceConfig
+	Frame                     *referenceframe.FrameConfig
 
 	// Secret is a helper for a robot location secret.
 	Secret string
@@ -269,13 +269,13 @@ type Remote struct {
 type remoteData struct {
 	Name                      string                              `json:"name"`
 	Address                   string                              `json:"address"`
-	Frame                     *referenceframe.LinkConfig          `json:"frame,omitempty"`
 	Auth                      RemoteAuth                          `json:"auth"`
 	ManagedBy                 string                              `json:"managed_by"`
 	Insecure                  bool                                `json:"insecure"`
 	ConnectionCheckInterval   string                              `json:"connection_check_interval,omitempty"`
 	ReconnectInterval         string                              `json:"reconnect_interval,omitempty"`
 	AssociatedResourceConfigs []resource.AssociatedResourceConfig `json:"service_configs"`
+	Frame                     *referenceframe.FrameConfig
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
@@ -393,8 +393,8 @@ func (conf *Remote) validate(path string) error {
 	if conf.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
 	}
-	if conf.Frame != nil {
-		if conf.Frame.Parent == "" {
+	if conf.Frame != nil && conf.Frame.Link != nil {
+		if conf.Frame.Link.Parent == "" {
 			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}

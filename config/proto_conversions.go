@@ -111,8 +111,8 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 		Attributes:     attributes,
 	}
 
-	if conf.FrameConfig != nil {
-		frame, err := FrameConfigToProto(*conf.FrameConfig)
+	if conf.Frame != nil {
+		frame, err := FrameConfigToProto(*conf.Frame)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame to proto config")
 		}
@@ -163,7 +163,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame from proto config")
 		}
-		componentConf.FrameConfig = frame
+		componentConf.Frame = frame
 	}
 
 	return &componentConf, nil
@@ -301,7 +301,7 @@ func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (re
 }
 
 // FrameConfigToProto converts Frame to the proto equivalent.
-func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
+func FrameConfigToProto(frame referenceframe.FrameConfig) (*pb.Frame, error) {
 	pose, err := frame.Pose()
 	if err != nil {
 		return nil, err
@@ -390,14 +390,16 @@ func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
 }
 
 // FrameConfigFromProto creates Frame from the proto equivalent.
-func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
+func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.FrameConfig, error) {
 	var err error
-	frame := &referenceframe.LinkConfig{
-		Parent: proto.GetParent(),
-		Translation: r3.Vector{
-			X: proto.GetTranslation().GetX(),
-			Y: proto.GetTranslation().GetY(),
-			Z: proto.GetTranslation().GetZ(),
+	frame := &referenceframe.FrameConfig{
+		Link: &referenceframe.LinkConfig{
+			Parent: proto.GetParent(),
+			Translation: r3.Vector{
+				X: proto.GetTranslation().GetX(),
+				Y: proto.GetTranslation().GetY(),
+				Z: proto.GetTranslation().GetZ(),
+			},
 		},
 	}
 
@@ -443,7 +445,7 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 		default:
 			return nil, errors.New("Orientation type unsupported")
 		}
-		frame.Orientation, err = spatial.NewOrientationConfig(orient)
+		frame.Link.Orientation, err = spatial.NewOrientationConfig(orient)
 		if err != nil {
 			return nil, err
 		}
@@ -454,10 +456,11 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		frame.Geometry, err = spatial.NewGeometryConfig(geom)
+		geomCfg, err := spatial.NewGeometryConfig(geom)
 		if err != nil {
 			return nil, err
 		}
+		frame.Geometries = []*spatial.GeometryConfig{geomCfg}
 	}
 
 	return frame, nil

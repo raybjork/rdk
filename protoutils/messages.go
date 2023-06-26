@@ -10,7 +10,6 @@ import (
 	protov1 "github.com/golang/protobuf/proto"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
-
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"

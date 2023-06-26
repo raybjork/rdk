@@ -160,10 +160,12 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "foo",
 				Address: addr,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      "foo",
-					Translation: r3.Vector{100, 200, 300},
-					Orientation: o1Cfg,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent:      "foo",
+						Translation: r3.Vector{100, 200, 300},
+						Orientation: o1Cfg,
+					},
 				},
 			},
 			{
@@ -173,10 +175,12 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "squee",
 				Address: addr,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{100, 200, 300},
-					Orientation: o1Cfg,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent:      referenceframe.World,
+						Translation: r3.Vector{100, 200, 300},
+						Orientation: o1Cfg,
+					},
 				},
 			},
 		},
