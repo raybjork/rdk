@@ -249,7 +249,7 @@ func TestMoveOnMap(t *testing.T) {
 	cfg := resource.Config{
 		Name:  "test_base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		Frame: &referenceframe.FrameConfig{Geometries: []*spatialmath.GeometryConfig{{R: 100}}},
 	}
 
 	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)

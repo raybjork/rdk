@@ -179,14 +179,6 @@ func (s *serviceServer) GetProperties(
 	return result, nil
 }
 
-// func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
-// 	res, err := s.coll.Resource(req.GetName())
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return protoutils.GeometriesFromResourceServer(ctx, res, req)
-// }
-
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

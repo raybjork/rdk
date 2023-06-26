@@ -41,7 +41,7 @@ type typeSpecificConfigData struct {
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
-	*referenceframe.FrameConfig
+	Frame                     *referenceframe.FrameConfig
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -52,7 +52,7 @@ type configData struct {
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
-	*referenceframe.FrameConfig
+	Frame                     *referenceframe.FrameConfig
 }
 
 // UnmarshalJSON unmarshals JSON into the config.
@@ -69,7 +69,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 		conf.Name = confData.Name
 		conf.API = confData.API
 		conf.Model = confData.Model
-		conf.FrameConfig = confData.FrameConfig
+		conf.Frame = confData.Frame
 		conf.DependsOn = confData.DependsOn
 		conf.AssociatedResourceConfigs = confData.AssociatedResourceConfigs
 		conf.Attributes = confData.Attributes
@@ -84,7 +84,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 	// this will get adjusted later
 	conf.API = APINamespace(typeSpecificConf.Namespace).WithType("").WithSubtype(typeSpecificConf.Subtype)
 	conf.Model = typeSpecificConf.Model
-	conf.Frame = typeSpecificConf.FrameConfig
+	conf.Frame = typeSpecificConf.Frame
 	conf.DependsOn = typeSpecificConf.DependsOn
 	conf.AssociatedResourceConfigs = typeSpecificConf.AssociatedResourceConfigs
 	conf.Attributes = typeSpecificConf.Attributes
@@ -97,7 +97,7 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 		Name:                      conf.Name,
 		API:                       conf.API,
 		Model:                     conf.Model,
-		FrameConfig:               conf.Frame,
+		Frame:                     conf.Frame,
 		DependsOn:                 conf.DependsOn,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Attributes:                conf.Attributes,
