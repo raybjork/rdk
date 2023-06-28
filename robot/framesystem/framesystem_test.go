@@ -53,10 +53,12 @@ func TestNewFrameSystemFromConfig(t *testing.T) {
 	lif1, err := l1.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 
-	l2 := &referenceframe.LinkConfig{
-		ID:          "frame2",
-		Parent:      "frame1",
-		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+	l2 := &referenceframe.FrameConfig{
+		Link: &referenceframe.LinkConfig{
+			ID:          "frame2",
+			Parent:      "frame1",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		},
 	}
 	lif2, err := l2.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
@@ -332,19 +334,22 @@ func TestServiceWithRemote(t *testing.T) {
 			{
 				Name:    "bar",
 				Address: addr,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      "foo",
-					Translation: r3.Vector{100, 200, 300},
-					Orientation: o1Cfg,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{
+						Parent:      "foo",
+						Translation: r3.Vector{100, 200, 300},
+						Orientation: o1Cfg,
+					},
 				},
 			},
 			{
 				Name:    "squee",
 				Address: addr,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{500, 600, 700},
-					Orientation: o2Cfg,
+				Frame: &referenceframe.FrameConfig{
+					Link: &referenceframe.LinkConfig{Parent: referenceframe.World,
+						Translation: r3.Vector{500, 600, 700},
+						Orientation: o2Cfg,
+					},
 				},
 			},
 			{

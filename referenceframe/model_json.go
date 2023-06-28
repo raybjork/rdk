@@ -11,7 +11,7 @@ import (
 type ModelConfig struct {
 	Name         string          `json:"name"`
 	KinParamType string          `json:"kinematic_param_type,omitempty"`
-	Links        []LinkConfig    `json:"links,omitempty"`
+	Links        []FrameConfig   `json:"links,omitempty"`
 	Joints       []JointConfig   `json:"joints,omitempty"`
 	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
 }
@@ -33,23 +33,15 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	switch cfg.KinParamType {
 	case "SVA", "":
 		for _, link := range cfg.Links {
-			if link.ID == World {
-				return nil, errors.New("reserved word: cannot name a link 'world'")
-			}
-		}
-		for _, joint := range cfg.Joints {
-			if joint.ID == World {
-				return nil, errors.New("reserved word: cannot name a joint 'world'")
-			}
-		}
-
-		for _, link := range cfg.Links {
-			lif, err := link.ParseConfig()
+			linkInFrame, err := link.ParseConfig()
 			if err != nil {
 				return nil, err
 			}
-			parentMap[link.ID] = link.Parent
-			transforms[link.ID], err = lif.ToStaticFrame(link.ID)
+			if linkInFrame.Name() == World {
+				return nil, ErrWorldFrameReserved
+			}
+			parentMap[linkInFrame.Name()] = linkInFrame.Parent()
+			transforms[linkInFrame.Name()], err = linkInFrame.ToStaticFrame(linkInFrame.Name())
 			if err != nil {
 				return nil, err
 			}
@@ -57,11 +49,15 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 		for _, joint := range cfg.Joints {
-			parentMap[joint.ID] = joint.Parent
-			transforms[joint.ID], err = joint.ToFrame()
+			frame, err := joint.ToFrame()
 			if err != nil {
 				return nil, err
 			}
+			if frame.Name() == World {
+				return nil, ErrWorldFrameReserved
+			}
+			transforms[frame.Name()] = frame
+			parentMap[frame.Name()] = joint.Parent
 		}
 
 	case "DH":

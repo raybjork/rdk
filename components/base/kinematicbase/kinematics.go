@@ -191,13 +191,16 @@ func (ddk *differentialDriveKinematics) errorState(current, desired []referencef
 
 // CollisionGeometry returns a spherical geometry that will encompass the base if it were to rotate the geometry specified in the config
 // 360 degrees about the Z axis of the reference frame specified in the config.
-func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, error) {
+func CollisionGeometry(cfg *referenceframe.FrameConfig) ([]spatialmath.Geometry, error) {
 	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
 	// and should match the convention of +Y being forward for bases
-	if cfg == nil || cfg.Geometry == nil {
+	if cfg == nil || cfg.Geometries == nil {
 		return nil, errors.New("not configured with a geometry use caution if using motion service - collisions will not be accounted for")
 	}
-	geoCfg := cfg.Geometry
+	if len(cfg.Geometries) != 0 {
+		return nil, errors.New("specifying multiple geometries for bases not supported at this time, will only consider the first")
+	}
+	geoCfg := cfg.Geometries[0]
 	r := geoCfg.TranslationOffset.Norm()
 	switch geoCfg.Type {
 	case spatialmath.BoxType:

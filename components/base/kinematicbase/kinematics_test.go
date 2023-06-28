@@ -24,15 +24,15 @@ func testConfig() resource.Config {
 	return resource.Config{
 		Name: "test",
 		API:  base.API,
-		Frame: &referenceframe.LinkConfig{
-			Geometry: &spatialmath.GeometryConfig{
+		Frame: &referenceframe.FrameConfig{
+			Geometries: []*spatialmath.GeometryConfig{{
 				R:                 5,
 				X:                 8,
 				Y:                 6,
 				L:                 10,
 				TranslationOffset: r3.Vector{X: 3, Y: 4, Z: 0},
 				Label:             "ddk",
-			},
+			}},
 		},
 	}
 }

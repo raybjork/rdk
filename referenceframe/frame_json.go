@@ -88,19 +88,23 @@ func (cfg *FrameConfig) ParseConfig() (*LinkInFrame, error) {
 				return nil, err
 			}
 			if geo.Label() == "" {
-				geo.SetLabel(cfg.ID)
+				geo.SetLabel(cfg.Link.ID)
 			}
 			geometries = append(geometries, geo)
 		}
 	}
-	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geometries), nil
+	return NewLinkInFrame(cfg.Link.Parent, pose, cfg.Link.ID, geometries), nil
 }
 
 // Pose will parse out the Pose of a LinkConfig and return it if it is valid.
-func (cfg *LinkConfig) Pose() (spatialmath.Pose, error) {
-	pt := cfg.Translation
-	if cfg.Orientation != nil {
-		orient, err := cfg.Orientation.ParseConfig()
+func (cfg *FrameConfig) Pose() (spatialmath.Pose, error) {
+	link := cfg.Link
+	if link != nil {
+		return nil, ErrNilPose
+	}
+	pt := link.Translation
+	if link.Orientation != nil {
+		orient, err := link.Orientation.ParseConfig()
 		if err != nil {
 			return nil, err
 		}

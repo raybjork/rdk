@@ -73,13 +73,15 @@ func TestFrameModelPart(t *testing.T) {
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 	test.That(t, err, test.ShouldBeNil)
 
-	lc := &LinkConfig{
-		ID:          "test",
-		Parent:      "world",
-		Translation: r3.Vector{1, 2, 3},
-		Orientation: orientConf,
+	fc := &FrameConfig{
+		Link: &LinkConfig{
+			ID:          "test",
+			Parent:      "world",
+			Translation: r3.Vector{1, 2, 3},
+			Orientation: orientConf,
+		},
 	}
-	lif, err := lc.ParseConfig()
+	lif, err := fc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	// fully specified part
 	part = &FrameSystemPart{
@@ -142,13 +144,15 @@ func TestFramesFromPart(t *testing.T) {
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 	test.That(t, err, test.ShouldBeNil)
 
-	lc := &LinkConfig{
-		ID:          "test",
-		Parent:      "world",
-		Translation: r3.Vector{1, 2, 3},
-		Orientation: orientConf,
+	fc := &FrameConfig{
+		Link: &LinkConfig{
+			ID:          "test",
+			Parent:      "world",
+			Translation: r3.Vector{1, 2, 3},
+			Orientation: orientConf,
+		},
 	}
-	lif, err := lc.ParseConfig()
+	lif, err := fc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 
 	// fully specified part
@@ -164,14 +168,16 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, originFrame.DoF(), test.ShouldHaveLength, 0)
 
 	// Test geometries are not overwritten for non-zero DOF frames
-	lc = &LinkConfig{
-		ID:          "test",
-		Parent:      "world",
-		Translation: r3.Vector{1, 2, 3},
-		Orientation: orientConf,
-		Geometry:    &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	fc = &FrameConfig{
+		Link: &LinkConfig{
+			ID:          "test",
+			Parent:      "world",
+			Translation: r3.Vector{1, 2, 3},
+			Orientation: orientConf,
+		},
+		Geometries: []*spatial.GeometryConfig{{Type: "box", X: 1, Y: 2, Z: 1}},
 	}
-	lif, err = lc.ParseConfig()
+	lif, err = fc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	part = &FrameSystemPart{
 		FrameConfig: lif,
@@ -191,14 +197,16 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	model, err = UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
-	lc = &LinkConfig{
-		ID:          "test",
-		Parent:      "world",
-		Translation: r3.Vector{1, 2, 3},
-		Orientation: orientConf,
-		Geometry:    &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+	fc = &FrameConfig{
+		Link: &LinkConfig{
+			ID:          "test",
+			Parent:      "world",
+			Translation: r3.Vector{1, 2, 3},
+			Orientation: orientConf,
+		},
+		Geometries: []*spatial.GeometryConfig{{Type: "box", X: 1, Y: 2, Z: 1}},
 	}
-	lif, err = lc.ParseConfig()
+	lif, err = fc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	part = &FrameSystemPart{
 		FrameConfig: lif,
@@ -412,13 +420,15 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 		test.That(t, err, test.ShouldBeNil)
-		lc := &LinkConfig{
-			ID:          "arm",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
+		fc := &FrameConfig{
+			Link: &LinkConfig{
+				ID:          "arm",
+				Parent:      "world",
+				Translation: r3.Vector{1, 2, 3},
+				Orientation: orientConf,
+			},
 		}
-		lif, err := lc.ParseConfig()
+		lif, err := fc.ParseConfig()
 		test.That(t, err, test.ShouldBeNil)
 		// fully specified part
 		part := &FrameSystemPart{
@@ -442,13 +452,15 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 		test.That(t, err, test.ShouldBeNil)
-		lc := &LinkConfig{
-			ID:          "arm",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
+		fc := &FrameConfig{
+			Link: &LinkConfig{
+				ID:          "arm",
+				Parent:      "world",
+				Translation: r3.Vector{1, 2, 3},
+				Orientation: orientConf,
+			},
 		}
-		lif, err := lc.ParseConfig()
+		lif, err := fc.ParseConfig()
 		test.That(t, err, test.ShouldBeNil)
 		// fully specified part
 		part := &FrameSystemPart{
@@ -493,13 +505,15 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 		test.That(t, err, test.ShouldBeNil)
-		lc := &LinkConfig{
-			ID:          "arm",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
+		fc := &FrameConfig{
+			Link: &LinkConfig{
+				ID:          "arm",
+				Parent:      "world",
+				Translation: r3.Vector{1, 2, 3},
+				Orientation: orientConf,
+			},
 		}
-		lif, err := lc.ParseConfig()
+		lif, err := fc.ParseConfig()
 		test.That(t, err, test.ShouldBeNil)
 		// fully specified part
 		part := &FrameSystemPart{
