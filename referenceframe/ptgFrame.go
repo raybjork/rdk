@@ -23,12 +23,16 @@ const (
 
 type ptgFactory func(float64, float64, float64) tpspace.PrecomputePTG
 
-var defaultPTGs = []ptgFactory{
+var ackermanPTGs = []ptgFactory{
 	tpspace.NewCirclePTG,
 	tpspace.NewCCPTG,
 	tpspace.NewCCSPTG,
 	tpspace.NewCSPTG,
 	tpspace.NewAlphaPTG,
+}
+
+var diffDrivePTGs = []ptgFactory{
+	tpspace.NewSpinPTG,
 }
 
 type ptgGridSimFrame struct {
@@ -44,9 +48,6 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 	if velocityMMps <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMMps)
 	}
-	if turnRadMeters <= 0 {
-		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
-	}
 
 	if simDist <= 0 {
 		simDist = defaultSimDistMM
@@ -55,7 +56,13 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 	// Get max angular velocity in radians per second
 	maxRPS := velocityMMps / (1000. * turnRadMeters)
 	pf := &ptgGridSimFrame{name: name}
-	err := pf.initPTGs(velocityMMps, maxRPS, simDist)
+
+	var err error
+	if turnRadMeters <= 0 {
+		err = pf.initPTGs(diffDrivePTGs, velocityMMps, maxRPS, simDist)
+	} else {
+		err = pf.initPTGs(ackermanPTGs, velocityMMps, maxRPS, simDist)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +144,9 @@ func (pf *ptgGridSimFrame) PTGs() []tpspace.PTG {
 	return pf.ptgs
 }
 
-func (pf *ptgGridSimFrame) initPTGs(maxMps, maxRPS, simDist float64) error {
+func (pf *ptgGridSimFrame) initPTGs(ptgSet []ptgFactory, maxMps, maxRPS, simDist float64) error {
 	ptgs := []tpspace.PTG{}
-	for _, ptg := range defaultPTGs {
+	for _, ptg := range ptgSet {
 		for _, k := range []float64{1., -1.} {
 			// Positive K calculates trajectories forwards, negative k calculates trajectories backwards
 			ptgGen := ptg(maxMps, maxRPS, k)

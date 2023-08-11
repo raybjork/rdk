@@ -16,7 +16,7 @@ func NewSpinPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
 	}
 }
 
-// For this particular driver, turn at the max rotation in the direction specified
+// For this particular driver, turn at the max rotation in the direction specified and then drive straight
 func (ptg *ptgDiffDriveSpin) PTGVelocities(alpha, dist float64) (float64, float64, error) {
 	// rotate this much before going straight
 	turnDist := math.Abs(alpha) / ptg.maxRPS
