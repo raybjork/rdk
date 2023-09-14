@@ -321,7 +321,12 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// once execution responds: return the result to the caller
 		case resp := <-ma.responseChan:
-			ms.logger.Debugf("execution complete: %#v", resp)
+			if failed(resp) {
+				ms.logger.Debugf("execution failed: %s", resp)
+				ma.cancel()
+				return resp.success, resp.err
+			}
+			ms.logger.Debug("execution complete successfully")
 			ma.cancel()
 			return resp.success, resp.err
 
@@ -342,6 +347,10 @@ func (ms *builtIn) MoveOnGlobe(
 			}
 		}
 	}
+}
+
+func failed(resp moveResponse) bool {
+	return !resp.success || resp.err != nil
 }
 
 func (ms *builtIn) GetPose(

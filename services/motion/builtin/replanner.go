@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"sync/atomic"
+	"fmt"
 	"time"
 
 	"go.viam.com/rdk/referenceframe"
@@ -16,6 +17,13 @@ type replanResponse struct {
 
 // replanFn is an alias for a function that will be polled by a replanner.
 type replanFn func(context.Context, [][]referenceframe.Input, int) (bool, error)
+	
+func (rr replanResponse) String() string {
+	if rr.err == nil {
+		return fmt.Sprintf("builtin.replanResponse{replan: %t, err: nil}", rr.replan)
+	}
+	return fmt.Sprintf("builtin.replanResponse{replan: %t, err: %s}", rr.replan, rr.err.Error())
+}
 
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {
