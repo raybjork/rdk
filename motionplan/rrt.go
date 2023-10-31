@@ -30,18 +30,60 @@ type rrtParallelPlanner interface {
 	rrtBackgroundRunner(context.Context, []referenceframe.Input, *rrtParallelPlannerShared)
 }
 
+type rrtMap map[node]node
+
+type rrtMaps struct {
+	startMap rrtMap
+	goalMap  rrtMap
+	optNode  node // The highest quality IK solution
+}
+
+func (maps *rrtMaps) extractPath(pair *nodePair, matched bool) []node {
+	// need to figure out which of the two nodes is in the start map
+	var startReached, goalReached node
+	if _, ok := maps.startMap[pair.a]; ok {
+		startReached, goalReached = pair.a, pair.b
+	} else {
+		startReached, goalReached = pair.b, pair.a
+	}
+
+	// extract the path to the seed
+	path := make([]node, 0)
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = maps.startMap[startReached]
+	}
+
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+
+	if goalReached != nil {
+		if matched {
+			// skip goalReached node and go directly to its parent in order to not repeat this node
+			goalReached = maps.goalMap[goalReached]
+		}
+
+		// extract the path to the goal
+		for goalReached != nil {
+			path = append(path, goalReached)
+			goalReached = maps.goalMap[goalReached]
+		}
+	}
+	return path
+}
+
 type rrtParallelPlannerShared struct {
 	maps            *rrtMaps
 	endpointPreview chan node
-	solutionChan    chan *rrtPlanReturn
+	solutionChan    chan *rrtPlan
 }
 
-type rrtMap map[node]node
-
-type rrtPlanReturn struct {
-	steps   []node
-	planerr error
-	maps    *rrtMaps
+type rrtPlan struct {
+	maps  *rrtMaps
+	steps []node
+	err   error
 }
 
 func nodesToInputs(nodes []node) [][]referenceframe.Input {
@@ -52,20 +94,10 @@ func nodesToInputs(nodes []node) [][]referenceframe.Input {
 	return inputs
 }
 
-func (plan *rrtPlanReturn) err() error {
-	return plan.planerr
-}
-
-type rrtMaps struct {
-	startMap rrtMap
-	goalMap  rrtMap
-	optNode  node // The highest quality IK solution
-}
-
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtPlanReturn {
-	rrt := &rrtPlanReturn{
+func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtPlan {
+	rrt := &rrtPlan{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
 			goalMap:  map[node]node{},
@@ -77,7 +109,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	// get many potential end goals from IK solver
 	solutions, err := mp.getSolutions(ctx, seed)
 	if err != nil {
-		rrt.planerr = err
+		rrt.err = err
 		return rrt
 	}
 
@@ -106,9 +138,9 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	return rrt
 }
 
-func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
+func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlan {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{planerr: errPlannerFailed, maps: maps}
+		return &rrtPlan{err: errPlannerFailed, maps: maps}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()
@@ -118,7 +150,7 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
+	return &rrtPlan{steps: maps.extractPath(nodePairs[minIdx], true), maps: maps}
 }
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
@@ -205,42 +237,6 @@ func (np *nodePair) sumCosts() float64 {
 		return 0
 	}
 	return aCost + bCost
-}
-
-func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) []node {
-	// need to figure out which of the two nodes is in the start map
-	var startReached, goalReached node
-	if _, ok := startMap[pair.a]; ok {
-		startReached, goalReached = pair.a, pair.b
-	} else {
-		startReached, goalReached = pair.b, pair.a
-	}
-
-	// extract the path to the seed
-	path := make([]node, 0)
-	for startReached != nil {
-		path = append(path, startReached)
-		startReached = startMap[startReached]
-	}
-
-	// reverse the slice
-	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
-		path[i], path[j] = path[j], path[i]
-	}
-
-	if goalReached != nil {
-		if matched {
-			// skip goalReached node and go directly to its parent in order to not repeat this node
-			goalReached = goalMap[goalReached]
-		}
-
-		// extract the path to the goal
-		for goalReached != nil {
-			path = append(path, goalReached)
-			goalReached = goalMap[goalReached]
-		}
-	}
-	return path
 }
 
 func sumCosts(path []node) float64 {

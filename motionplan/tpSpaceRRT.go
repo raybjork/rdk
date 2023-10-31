@@ -142,7 +142,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	seed []referenceframe.Input,
 ) ([]node, error) {
 	mp.planOpts.SetGoal(goal)
-	solutionChan := make(chan *rrtPlanReturn, 1)
+	solutionChan := make(chan *rrtPlan, 1)
 
 	seedPos := spatialmath.NewZeroPose()
 
@@ -169,7 +169,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
 		if plan != nil {
-			return plan.steps, plan.err()
+			return plan.steps, plan.err
 		}
 		return nil, errors.New("nil tp-space plan returned, unable to complete plan")
 	}
@@ -191,7 +191,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			if k.Pose() != nil {
 				startPose = k.Pose()
 			} else {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
+				rrt.solutionChan <- &rrtPlan{err: fmt.Errorf("node %v must provide a Pose", k)}
 				return
 			}
 			break
@@ -202,7 +202,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			if k.Pose() != nil {
 				goalPose = k.Pose()
 			} else {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
+				rrt.solutionChan <- &rrtPlan{err: fmt.Errorf("node %v must provide a Pose", k)}
 				return
 			}
 			break
@@ -222,7 +222,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
-			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlan{err: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
 
@@ -242,7 +242,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		goalMapNode := goalReached.node
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 			return
 		}
 
@@ -252,7 +252,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
 				seedReached = mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
 				if seedReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlan{err: seedReached.error, maps: rrt.maps}
 					return
 				}
 				if seedReached.node == nil {
@@ -260,7 +260,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true)
 				if goalReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlan{err: goalReached.error, maps: rrt.maps}
 					return
 				}
 				if goalReached.node == nil {
@@ -270,13 +270,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			}
 			if reachedDelta <= mp.algOpts.poseSolveDist {
 				// If we've reached the goal, extract the path from the RRT trees and return
-				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
+				path := rrt.maps.extractPath(&nodePair{a: seedReached.node, b: goalReached.node}, false)
 				correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
 				if err != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 					return
 				}
-				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
+				rrt.solutionChan <- &rrtPlan{steps: correctedPath, maps: rrt.maps}
 				return
 			}
 		}
@@ -286,7 +286,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			for goalMapNode := range rrt.maps.goalMap {
 				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
 				if seedReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlan{err: seedReached.error, maps: rrt.maps}
 					return
 				}
 				if seedReached.node == nil {
@@ -300,7 +300,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				if reachedDelta <= mp.algOpts.poseSolveDist {
 					// If we've reached the goal, extract the path from the RRT trees and return
-					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
+					path := rrt.maps.extractPath(&nodePair{a: seedReached.node, b: goalMapNode}, false)
 					paths = append(paths, path)
 				}
 			}
@@ -316,10 +316,10 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame, spatialmath.NewZeroPose())
 				if err != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 					return
 				}
-				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
+				rrt.solutionChan <- &rrtPlan{steps: correctedPath, maps: rrt.maps}
 				return
 			}
 		}
@@ -327,11 +327,11 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		// Get random cartesian configuration
 		randPosNode, err = mp.sample(midptNode, iter+1)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 			return
 		}
 	}
-	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, planerr: errors.New("tpspace RRT unable to create valid path")}
+	rrt.solutionChan <- &rrtPlan{maps: rrt.maps, err: errors.New("tpspace RRT unable to create valid path")}
 }
 
 // getExtensionCandidate will return either nil, or the best node on a valid PTG to reach the desired random node and its RRT tree parent.
@@ -828,7 +828,8 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		return nil, errors.New("could not precisely reach smoothing destination")
 	}
 
-	newInputSteps := extractPath(startMap, nil, &nodePair{a: reached.node, b: nil}, false)
+	maps := &rrtMaps{startMap: startMap}
+	newInputSteps := maps.extractPath(&nodePair{a: reached.node, b: nil}, false)
 
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)

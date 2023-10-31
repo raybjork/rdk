@@ -82,7 +82,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 	seed []referenceframe.Input,
 ) ([]node, error) {
 	mp.planOpts.SetGoal(goal)
-	solutionChan := make(chan *rrtPlanReturn, 1)
+	solutionChan := make(chan *rrtPlan, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
@@ -90,7 +90,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.steps, plan.err()
+		return plan.steps, plan.err
 	}
 }
 
@@ -105,7 +105,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	// setup planner options
 	if mp.planOpts == nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
+		rrt.solutionChan <- &rrtPlan{err: errNoPlannerOptions}
 		return
 	}
 
@@ -113,7 +113,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
 		planSeed := initRRTSolutions(ctx, mp, seed)
-		if planSeed.planerr != nil || planSeed.steps != nil {
+		if planSeed.err != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
 		}
@@ -141,7 +141,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				rrt.solutionChan <- shortestPath(rrt.maps, shared)
 			} else {
 				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
-				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
+				rrt.solutionChan <- &rrtPlan{err: ctx.Err(), maps: rrt.maps}
 			}
 			return
 		default:
@@ -170,7 +170,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		map1reached, map2reached, err := tryExtend(target)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 			return
 		}
 
@@ -181,7 +181,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 				return
 			}
 			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
@@ -214,7 +214,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		// get next sample, switch map pointers
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlan{err: err, maps: rrt.maps}
 			return
 		}
 		map1, map2 = map2, map1

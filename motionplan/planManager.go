@@ -267,7 +267,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
 		endpointPreview := make(chan node, 1)
-		solutionChan := make(chan *rrtPlanReturn, 1)
+		solutionChan := make(chan *rrtPlan, 1)
 		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer pm.activeBackgroundWorkers.Done()
@@ -280,8 +280,8 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		case nextSeed := <-endpointPreview:
 			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
 		case planReturn := <-solutionChan:
-			if planReturn.planerr != nil {
-				return nil, nil, planReturn.planerr
+			if planReturn.err != nil {
+				return nil, nil, planReturn.err
 			}
 			steps := nodesToInputs(planReturn.steps)
 			return steps[len(steps)-1], &resultPromise{steps: steps}, nil
@@ -312,7 +312,7 @@ func (pm *planManager) planParallelRRTMotion(
 	seed []referenceframe.Input,
 	pathPlanner rrtParallelPlanner,
 	endpointPreview chan node,
-	solutionChan chan *rrtPlanReturn,
+	solutionChan chan *rrtPlan,
 	maps *rrtMaps,
 ) {
 	var rrtBackground sync.WaitGroup
@@ -321,7 +321,7 @@ func (pm *planManager) planParallelRRTMotion(
 	if !pm.useTPspace {
 		if maps == nil {
 			planSeed := initRRTSolutions(ctx, pathPlanner, seed)
-			if planSeed.planerr != nil || planSeed.steps != nil {
+			if planSeed.err != nil || planSeed.steps != nil {
 				solutionChan <- planSeed
 				return
 			}
@@ -356,7 +356,7 @@ func (pm *planManager) planParallelRRTMotion(
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
-	plannerChan := make(chan *rrtPlanReturn, 1)
+	plannerChan := make(chan *rrtPlan, 1)
 
 	// start the planner
 	rrtBackground.Add(1)
@@ -370,7 +370,7 @@ func (pm *planManager) planParallelRRTMotion(
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
 		rrtBackground.Wait()
-		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
+		solutionChan <- &rrtPlan{err: ctx.Err()}
 		return
 	default:
 	}
@@ -398,7 +398,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// If there was no error, check path quality. If sufficiently good, move on.
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
-		if finalSteps.err() == nil {
+		if finalSteps.err == nil {
 			if fallbackPlanner != nil {
 				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
 					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
@@ -452,7 +452,7 @@ func (pm *planManager) planParallelRRTMotion(
 				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
-					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
+					finalSteps = &rrtPlan{steps: stepsToNodes(alternate)}
 				} else {
 					pm.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
 				}
@@ -464,7 +464,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 	case <-ctx.Done():
 		rrtBackground.Wait()
-		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
+		solutionChan <- &rrtPlan{err: ctx.Err()}
 		return
 	}
 }
@@ -626,7 +626,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtPlan, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
