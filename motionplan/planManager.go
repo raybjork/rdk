@@ -626,73 +626,19 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtPlan, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(plan *rrtPlan, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
-	if pr.steps != nil {
-		if pr.maps.optNode.Cost() <= 0 {
+	if plan.steps != nil {
+		if plan.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = pm.frame.inputsToPlan(nodesToInputs(pr.steps)).Evaluate(opt.ScoreFunc)
-		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
+		solutionCost = pm.frame.inputsToPlan(nodesToInputs(plan.steps)).Evaluate(opt.ScoreFunc)
+		if solutionCost < plan.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
 	}
 
 	return false, solutionCost
-}
-
-func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
-	planNodes := make([]node, 0, len(plan))
-	// Build a list of nodes from the plan
-	for _, planStep := range plan {
-		conf, err := pm.frame.mapToSlice(planStep)
-		if err != nil {
-			return nil, err
-		}
-		planNodes = append(planNodes, newConfigurationNode(conf))
-	}
-
-	if pm.useTPspace {
-		// Fill in positions from the old origin to where the goal was during the last run
-		planNodesOld, err := rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
-		if err != nil {
-			return nil, err
-		}
-
-		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
-		oldGoal := planNodesOld[len(planNodesOld)-1].Pose()
-		pathDiff := spatialmath.PoseBetween(oldGoal, goal)
-		planNodes, err = rectifyTPspacePath(planNodes, pm.frame, pathDiff)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var lastNode node
-	goalMap := map[node]node{}
-	for i := len(planNodes) - 1; i >= 0; i-- {
-		if i != 0 {
-			// Fill in costs
-			cost := pm.opt().DistanceFunc(&ik.Segment{
-				StartConfiguration: planNodes[i-1].Q(),
-				StartPosition:      planNodes[i-1].Pose(),
-				EndConfiguration:   planNodes[i].Q(),
-				EndPosition:        planNodes[i].Pose(),
-				Frame:              pm.frame,
-			})
-			planNodes[i].SetCost(cost)
-		}
-		goalMap[planNodes[i]] = lastNode
-		lastNode = planNodes[i]
-	}
-
-	startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
-	maps := &rrtMaps{
-		startMap: map[node]node{startNode: nil},
-		goalMap:  goalMap,
-	}
-
-	return maps, nil
 }
 
 // Copy any atomic values.

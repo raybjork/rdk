@@ -33,9 +33,8 @@ type rrtParallelPlanner interface {
 type rrtMap map[node]node
 
 type rrtMaps struct {
-	startMap rrtMap
-	goalMap  rrtMap
-	optNode  node // The highest quality IK solution
+	startMap, goalMap rrtMap
+	optNode           node // The highest quality IK solution
 }
 
 func (maps *rrtMaps) extractPath(pair *nodePair, matched bool) []node {

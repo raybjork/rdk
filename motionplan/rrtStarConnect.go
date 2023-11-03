@@ -195,7 +195,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
 				solution := shortestPath(rrt.maps, shared)
-				plan := Plan{}
+				plan := Path{}
 				for _, resultSlice := range nodesToInputs(solution.steps) {
 					stepMap := map[string][]referenceframe.Input{mp.frame.Name(): resultSlice}
 					plan = append(plan, stepMap)

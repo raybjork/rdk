@@ -296,8 +296,8 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 }
 
 // inputsToPlan takes a 2d array on inputs and converts to a Plan.
-func (sf solverFrame) inputsToPlan(inputs [][]frame.Input) Plan {
-	plan := Plan{}
+func (sf solverFrame) inputsToPlan(inputs [][]frame.Input) Path {
+	plan := Path{}
 	for _, inputSlice := range inputs {
 		stepMap := sf.sliceToMap(inputSlice)
 		plan = append(plan, stepMap)
@@ -306,7 +306,7 @@ func (sf solverFrame) inputsToPlan(inputs [][]frame.Input) Plan {
 }
 
 // planToNodes takes a plan and turns it into a slice of nodes.
-func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
+func (sf solverFrame) planToNodes(plan Path) ([]node, error) {
 	planNodes := make([]node, 0, len(plan))
 	for _, step := range plan {
 		stepConfig, err := sf.mapToSlice(step)

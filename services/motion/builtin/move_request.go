@@ -45,7 +45,7 @@ type validatedMotionConfiguration struct {
 type moveRequest struct {
 	config            *validatedMotionConfiguration
 	planRequest       *motionplan.PlanRequest
-	seedPlan          motionplan.Plan
+	seedPlan          motionplan.Path
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
@@ -112,7 +112,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
-	var plan motionplan.Plan
+	var plan motionplan.Path
 	// We only care to check against waypoints we have not reached yet.
 	for _, inputs := range waypoints[waypointIndex:] {
 		input := make(map[string][]referenceframe.Input)
@@ -282,7 +282,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
 	rawMotionCfg *motion.MotionConfiguration,
-	seedPlan motionplan.Plan,
+	seedPlan motionplan.Path,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
 	motionCfg, err := newValidatedMotionCfg(rawMotionCfg)

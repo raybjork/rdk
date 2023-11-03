@@ -8,11 +8,17 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// Plan describes a motion plan.
-type Plan []map[string][]referenceframe.Input
+type Plan struct {
+	Path() Path
+	Trajectory() Trajectory
+	*rrtMaps
+}
+
+// Path describes a motion plan.
+type Path []map[string][]referenceframe.Input
 
 // GetFrameSteps is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
-func (plan Plan) GetFrameSteps(frameName string) ([][]referenceframe.Input, error) {
+func (plan Path) GetFrameSteps(frameName string) ([][]referenceframe.Input, error) {
 	solution := make([][]referenceframe.Input, 0, len(plan))
 	for _, step := range plan {
 		frameStep, ok := step[frameName]
@@ -25,7 +31,7 @@ func (plan Plan) GetFrameSteps(frameName string) ([][]referenceframe.Input, erro
 }
 
 // String returns a human-readable version of the Plan, suitable for debugging.
-func (plan Plan) String() string {
+func (plan Path) String() string {
 	var str string
 	for _, step := range plan {
 		str += "\n"
@@ -39,7 +45,7 @@ func (plan Plan) String() string {
 }
 
 // Evaluate assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func (plan Plan) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
+func (plan Path) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
 	if len(plan) < 2 {
 		return math.Inf(1)
 	}

@@ -471,7 +471,7 @@ func CheckPlan(
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan.Path[0])
 	if err != nil {
 		return err
 	}
