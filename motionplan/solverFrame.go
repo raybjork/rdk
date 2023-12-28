@@ -296,31 +296,14 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
-// inputsToPlan takes a 2d array on inputs and converts to a Plan.
-func (sf solverFrame) inputsToPlan(inputs [][]frame.Input) Plan {
-	plan := Plan{}
+// inputsToPath takes a 2d array on inputs and converts to a Path.
+func (sf solverFrame) inputsToPath(inputs [][]frame.Input) Path {
+	path := Path{}
 	for _, inputSlice := range inputs {
 		stepMap := sf.sliceToMap(inputSlice)
-		plan = append(plan, stepMap)
+		path = append(path, stepMap)
 	}
-	return plan
-}
-
-// planToNodes takes a plan and turns it into a slice of nodes.
-func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
-	planNodes := make([]node, 0, len(plan))
-	for _, step := range plan {
-		stepConfig, err := sf.mapToSlice(step)
-		if err != nil {
-			return nil, err
-		}
-		pose, err := sf.Transform(stepConfig)
-		if err != nil {
-			return nil, err
-		}
-		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
-	}
-	return planNodes, nil
+	return path
 }
 
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than

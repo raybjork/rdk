@@ -78,9 +78,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	goalPos spatialmath.Pose,
 	worldState *referenceframe.WorldState,
 	constraintSpec *pb.Constraints,
-	seedPlan Plan,
+	seedPlan *Plan,
 	motionConfig map[string]interface{},
-) ([][]referenceframe.Input, error) {
+) (*Plan, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func (pm *planManager) planAtomicWaypoints(
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	planners []motionPlanner,
-	seedPlan Plan,
+	seedPlan *Plan,
 ) ([][]referenceframe.Input, error) {
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
@@ -242,10 +242,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 		var maps *rrtMaps
 		if seedPlan != nil {
-			maps, err = pm.planToRRTGoalMap(seedPlan, goal)
-			if err != nil {
-				return nil, err
-			}
+			maps = seedPlan.rrtMaps
 		}
 		if pm.useTPspace && pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
 			if maps == nil {
@@ -468,7 +465,7 @@ func (pm *planManager) planParallelRRTMotion(
 		finalSteps.steps = <-smoothChan
 		score := math.Inf(1)
 		if finalSteps.steps != nil {
-			score = pm.frame.inputsToPlan(nodesToInputs(finalSteps.steps)).Evaluate(pm.opt().ScoreFunc)
+			score = pm.frame.inputsToPath(nodesToInputs(finalSteps.steps)).Evaluate(pm.opt().ScoreFunc)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -477,7 +474,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
+				altCost := pm.frame.inputsToPath(alternate).Evaluate(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
@@ -662,67 +659,13 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = pm.frame.inputsToPlan(nodesToInputs(pr.steps)).Evaluate(opt.ScoreFunc)
+		solutionCost = pm.frame.inputsToPath(nodesToInputs(pr.steps)).Evaluate(opt.ScoreFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
 	}
 
 	return false, solutionCost
-}
-
-func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
-	planNodes := make([]node, 0, len(plan))
-	// Build a list of nodes from the plan
-	for _, planStep := range plan {
-		conf, err := pm.frame.mapToSlice(planStep)
-		if err != nil {
-			return nil, err
-		}
-		planNodes = append(planNodes, newConfigurationNode(conf))
-	}
-
-	if pm.useTPspace {
-		// Fill in positions from the old origin to where the goal was during the last run
-		planNodesOld, err := rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
-		if err != nil {
-			return nil, err
-		}
-
-		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
-		oldGoal := planNodesOld[len(planNodesOld)-1].Pose()
-		pathDiff := spatialmath.PoseBetween(oldGoal, goal)
-		planNodes, err = rectifyTPspacePath(planNodes, pm.frame, pathDiff)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var lastNode node
-	goalMap := map[node]node{}
-	for i := len(planNodes) - 1; i >= 0; i-- {
-		if i != 0 {
-			// Fill in costs
-			cost := pm.opt().DistanceFunc(&ik.Segment{
-				StartConfiguration: planNodes[i-1].Q(),
-				StartPosition:      planNodes[i-1].Pose(),
-				EndConfiguration:   planNodes[i].Q(),
-				EndPosition:        planNodes[i].Pose(),
-				Frame:              pm.frame,
-			})
-			planNodes[i].SetCost(cost)
-		}
-		goalMap[planNodes[i]] = lastNode
-		lastNode = planNodes[i]
-	}
-
-	startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
-	maps := &rrtMaps{
-		startMap: map[node]node{startNode: nil},
-		goalMap:  goalMap,
-	}
-
-	return maps, nil
 }
 
 // Copy any atomic values.

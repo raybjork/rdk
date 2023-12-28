@@ -71,7 +71,7 @@ func TestFixOvIncrement(t *testing.T) {
 }
 
 func TestEvaluate(t *testing.T) {
-	plan := Plan{
+	plan := Path{
 		map[string][]frame.Input{"": {{1.}, {2.}, {3.}}},
 	}
 	score := plan.Evaluate(ik.L2InputMetric)
@@ -130,7 +130,7 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 		StartConfiguration: frame.StartPositions(baseFS),
 		Options:            map[string]interface{}{"smooth_iter": 0},
 	}
-	plan := Plan{
+	plan := Path{
 		map[string][]frame.Input{
 			"itsabase": {{0}, {0}, {0}},
 			"world":    {},

@@ -97,7 +97,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, request *PlanRequest) (*Plan, error) {
 	// Calls Replan but without a seed plan
 	return Replan(ctx, request, nil, 0)
 }
@@ -134,7 +134,7 @@ func PlanFrameMotion(ctx context.Context,
 
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
-func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+func Replan(ctx context.Context, request *PlanRequest, currentPlan *Plan, replanCostFactor float64) (*Plan, error) {
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -193,7 +193,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if err != nil {
 		return nil, err
 	}
-	newPlan := sf.inputsToPlan(resultSlices)
+	newPlan := sf.inputsToPath(resultSlices)
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
