@@ -544,6 +544,9 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
+	fmt.Println("segment: ", segment)
+	fmt.Println("segment sp: ", spatialmath.PoseToProtobuf(segment.StartPosition))
+	fmt.Println("segment ep: ", spatialmath.PoseToProtobuf(segment.EndPosition))
 	segments = append(segments, segment)
 
 	// add the rest of the segments in the offset
@@ -552,6 +555,7 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
+
 		segments = append(segments, segment)
 	}
 
@@ -586,6 +590,7 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
+			fmt.Println("poseInPath: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 

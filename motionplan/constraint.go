@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -271,6 +272,10 @@ func createAllCollisionConstraints(
 	obstacles, err := worldState.ObstaclesInWorldFrame(fs, inputs)
 	if err != nil {
 		return nil, err
+	}
+	fmt.Println("PRINTING POSE OF OBSTACLES")
+	for _, g := range obstacles.Geometries() {
+		fmt.Println("g pose: ", spatialmath.PoseToProtobuf(g.Pose()))
 	}
 
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)

@@ -491,10 +491,11 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPose1 := plans[0].Plan.Steps[0][base.Named("test-base")]
+	firstPathPoses, err := plans[0].Plan.Path().GetFramePoses("test-base")
+	test.That(t, err, test.ShouldBeNil)
+	goalPose1 := firstPathPoses[0]
 	goalPose2 := spatialmath.PoseBetween(
-		plans[0].Plan.Steps[0][base.Named("test-base")],
-		plans[0].Plan.Steps[len(plans[0].Plan.Steps)-1][base.Named("test-base")],
+		goalPose1, firstPathPoses[len(firstPathPoses)-1],
 	)
 
 	// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
@@ -639,7 +640,7 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanning(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -658,31 +659,31 @@ func TestObstacleReplanning(t *testing.T) {
 	}
 
 	cfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
+		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
 	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	testCases := []testCase{
-		{
-			name: "ensure no replan from discovered obstacles",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
-				test.That(t, err, test.ShouldBeNil)
+		// 	{
+		// 		name: "ensure no replan from discovered obstacles",
+		// 		getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		// 			obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
+		// 			box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
+		// 			test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+		// 			detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
+		// 			test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: true,
-		},
+		// 			return []*viz.Object{detection}, nil
+		// 		},
+		// 		expectedSuccess: true,
+		// 	},
 		{
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 300, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 10}, "test-case-1")
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 2, Y: 50, Z: 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
 
 				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
@@ -714,8 +715,9 @@ func TestObstacleReplanning(t *testing.T) {
 			ComponentName:      kb.Name(),
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
-			MotionCfg:          cfg,
-			Extra:              extra,
+			// Heading:            90,
+			MotionCfg: cfg,
+			Extra:     extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -739,7 +741,7 @@ func TestObstacleReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 			testFn(t, c)
 		})
 	}

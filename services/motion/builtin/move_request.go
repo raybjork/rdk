@@ -188,6 +188,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				)
 				baseToCamera = cameraOrigin
 			}
+			fmt.Println("baseToCamera: ", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
 
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 			// There is no need to append the new detections to the existing worldstate.
@@ -196,9 +197,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			for i, detection := range detections {
 				// put the detection in the base coordinate frame
 				geometry := detection.Geometry.Transform(baseToCamera.Pose())
+				fmt.Println("geometry Pose: ", spatialmath.PoseToProtobuf(geometry.Pose()))
+				fmt.Println("currentPosition.Pose(): ", spatialmath.PoseToProtobuf(currentPosition.Pose()))
 
-				// put the detection into its position in the world with the base coordinate frame
 				geometry = geometry.Transform(currentPosition.Pose())
+				fmt.Println("geometry Pose: ", spatialmath.PoseToProtobuf(geometry.Pose()))
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
