@@ -4,6 +4,9 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
+	commonpb "go.viam.com/api/common/v1"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -29,6 +32,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -42,9 +46,8 @@ var (
 
 // Config is used for converting config attributes.
 type Config struct {
-	SpeedDegsPerSec     float64 `json:"speed_degs_per_sec"`
-	Host                string  `json:"host"`
-	ArmHostedKinematics bool    `json:"arm_hosted_kinematics,omitempty"`
+	SpeedDegsPerSec float64 `json:"speed_degs_per_sec"`
+	Host            string  `json:"host"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -94,7 +97,6 @@ type urArm struct {
 	runtimeError             error
 	inRemoteMode             bool
 	speedRadPerSec           float64
-	urHostedKinematics       bool
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
 	host                     string
@@ -123,7 +125,6 @@ func (ua *urArm) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		return nil
 	}
 	ua.speedRadPerSec = rdkutils.DegToRad(newConf.SpeedDegsPerSec)
-	ua.urHostedKinematics = newConf.ArmHostedKinematics
 	return nil
 }
 
@@ -197,7 +198,6 @@ func urArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 		cancel:                   cancel,
 		model:                    model,
 		opMgr:                    operation.NewSingleOperationManager(),
-		urHostedKinematics:       newConf.ArmHostedKinematics,
 		inRemoteMode:             false,
 		readRobotStateConnection: connReadRobotState,
 		dashboardConnection:      connDashboard,
@@ -344,8 +344,12 @@ func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{
 	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
-// EndPosition computes and returns the current cartesian position.
 func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	return nil, errors.New("unimplemented")
+}
+
+// endPosition computes and returns the current cartesian position.
+func (ua *urArm) endPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := ua.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -353,25 +357,19 @@ func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	return motionplan.ComputeOOBPosition(ua.model, joints)
 }
 
-// MoveToPosition moves the arm to the specified cartesian position.
+func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+	return errors.New("unimplemented")
+}
+
+// moveToPosition moves the arm to the specified cartesian position.
 // If the UR arm was configured with "arm_hosted_kinematics = 'true'" or extra["arm_hosted_kinematics"] = true is specified at runtime
 // this command will use the kinematics hosted by the Universal Robots arm.
-func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+func (ua *urArm) moveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
-
-	// Apply config hook first; if runtime setting exists, use that instead
-	usingHostedKinematics := ua.urHostedKinematics
-	if runtimeKinematicsSetting, ok := extra["arm_hosted_kinematics"].(bool); ok {
-		usingHostedKinematics = runtimeKinematicsSetting
-	}
-
-	if usingHostedKinematics {
-		return ua.moveWithURHostedKinematics(ctx, pos)
-	}
 	return arm.Move(ctx, ua.logger, ua, pos)
 }
 
@@ -514,6 +512,25 @@ func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.
 		}
 	}
 	return nil
+}
+
+func (ua *urArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	var urHostedKinematics bool
+	if _, ok := cmd["URHostedKinematics"]; ok {
+		urHostedKinematics = true
+	}
+	if val, ok := cmd["MoveToEndPosition"]; ok {
+		pb, err := utils.AssertType[*commonpb.Pose](val)
+		if err != nil {
+			return nil, err
+		}
+		pose := spatialmath.NewPoseFromProtobuf(pb)
+		if urHostedKinematics {
+			return nil, ua.moveWithURHostedKinematics(ctx, pose)
+		}
+		return nil, ua.moveToPosition(ctx, pose, nil)
+	}
+	return nil, errors.New("could not parse command")
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
@@ -695,7 +712,7 @@ func (ua *urArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmat
 
 	now := time.Now()
 	for {
-		cur, err := ua.EndPosition(ctx, nil)
+		cur, err := ua.endPosition(ctx, nil)
 		if err != nil {
 			return err
 		}

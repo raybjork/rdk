@@ -320,9 +320,8 @@ func TestArmReconnection(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			SpeedDegsPerSec:     0.3,
-			Host:                "localhost",
-			ArmHostedKinematics: false,
+			SpeedDegsPerSec: 0.3,
+			Host:            "localhost",
 		},
 	}
 
@@ -395,27 +394,24 @@ func TestReconfigure(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			SpeedDegsPerSec:     0.3,
-			Host:                "localhost",
-			ArmHostedKinematics: false,
+			SpeedDegsPerSec: 0.3,
+			Host:            "localhost",
 		},
 	}
 
 	conf1 := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			SpeedDegsPerSec:     0.5,
-			Host:                "localhost",
-			ArmHostedKinematics: false,
+			SpeedDegsPerSec: 0.5,
+			Host:            "localhost",
 		},
 	}
 
 	conf2 := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			SpeedDegsPerSec:     0.5,
-			Host:                "new",
-			ArmHostedKinematics: false,
+			SpeedDegsPerSec: 0.5,
+			Host:            "new",
 		},
 	}
 
@@ -423,9 +419,8 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ur5e := &urArm{
-		speedRadPerSec:     conf.SpeedDegsPerSec,
-		urHostedKinematics: conf.ArmHostedKinematics,
-		host:               conf.Host,
+		speedRadPerSec: conf.SpeedDegsPerSec,
+		host:           conf.Host,
 	}
 
 	// scenario where we do not reconfigure
