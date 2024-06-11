@@ -4,12 +4,12 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"os"
 	"strings"
@@ -66,6 +66,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 		) (arm.Arm, error) {
+			logger.Info("about to run the thing")
 			return urArmConnect(ctx, conf, logger)
 		},
 	})
@@ -376,13 +377,14 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 }
 
 // MoveToJointPositions moves the UR arm to the specified joint positions.
-func (ua *urArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (ua *urArm) MoveToJointPositions(ctx context.Context, inputs [][]referenceframe.Input, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	inputs := ua.ModelFrame().InputFromProtobuf(joints)
-	if err := arm.CheckDesiredJointPositions(ctx, ua, inputs); err != nil {
-		return err
+	for _, input := range inputs {
+		if err := arm.CheckDesiredJointPositions(ctx, ua, input); err != nil {
+			return err
+		}
 	}
-	return ua.moveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
+	return ua.moveToJointPositionRadians(ctx, inputs)
 }
 
 // Stop stops the arm with some deceleration.
@@ -403,7 +405,8 @@ func (ua *urArm) IsMoving(ctx context.Context) (bool, error) {
 	return ua.opMgr.OpRunning(), nil
 }
 
-func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float64) error {
+func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]referenceframe.Input) error {
+	ua.logger.Info("DOING THE THING")
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -413,39 +416,34 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
 
-	if len(radians) != 6 {
-		return errors.New("need 6 joints")
+	var cmd string
+	for _, input := range inputSteps {
+		radians := referenceframe.JointPositionsToRadians(ua.model.ProtobufFromInput(input))
+		cmd += fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0.001)\r\n",
+			radians[0],
+			radians[1],
+			radians[2],
+			radians[3],
+			radians[4],
+			radians[5],
+			0.8*ua.speedRadPerSec,
+			ua.speedRadPerSec,
+		)
 	}
 
-	state, err := ua.getState()
-	if err != nil {
-		return err
-	}
+	// // calculate a timeout that corresponds to how fast the arm will move
+	// maxAngle := 0.
+	// for i := 0; i < 6; i++ {
+	// 	if diff := math.Abs(state.Joints[i].Qactual - radians[i]); diff > maxAngle {
+	// 		maxAngle = diff
+	// 	}
+	// }
 
-	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0)\r\n",
-		radians[0],
-		radians[1],
-		radians[2],
-		radians[3],
-		radians[4],
-		radians[5],
-		0.8*ua.speedRadPerSec,
-		ua.speedRadPerSec,
-	)
-
-	// calculate a timeout that corresponds to how fast the arm will move
-	maxAngle := 0.
-	for i := 0; i < 6; i++ {
-		if diff := math.Abs(state.Joints[i].Qactual - radians[i]); diff > maxAngle {
-			maxAngle = diff
-		}
-	}
-
-	// make the timeout the max between the default and time calculated by slapping a 20% factor on the estimated time to complete
-	timeout := defaultTimeout
-	if estTime := time.Duration(1.2*maxAngle/ua.speedRadPerSec) * time.Second; estTime > timeout {
-		timeout = estTime
-	}
+	// // make the timeout the max between the default and time calculated by slapping a 20% factor on the estimated time to complete
+	// timeout := defaultTimeout
+	// if estTime := time.Duration(1.2*maxAngle/ua.speedRadPerSec) * time.Second; estTime > timeout {
+	// 	timeout = estTime
+	// }
 
 	if _, err := ua.connControl.Write([]byte(cmd)); err != nil {
 		return err
@@ -460,6 +458,7 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 
 		// check if we have reached the desired positions
 		good := true
+		radians := referenceframe.JointPositionsToRadians(ua.model.ProtobufFromInput(inputSteps[len(inputSteps)-1]))
 		for idx, r := range radians {
 			if !rdkutils.Float64AlmostEqual(r, state.Joints[idx].Qactual, 1e-2) {
 				good = false
@@ -474,7 +473,7 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 			return err
 		}
 
-		if time.Since(now) > timeout {
+		if time.Since(now) > defaultTimeout {
 			return errors.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
 				radians[0], radians[1], radians[2], radians[3], radians[4], radians[5],
 				state.Joints[0].Qactual,
@@ -503,17 +502,7 @@ func (ua *urArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves the UR arm to the Inputs specified.
 func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, ua, goal); err != nil {
-			return err
-		}
-		err := ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return errors.New("not gonna do this now")
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

@@ -56,6 +56,22 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	return &pb.JointPositions{Values: n}
 }
 
+func JointPositionsFromInput(inputs [][]Input) []*pb.JointPositions {
+	joints := make([]*pb.JointPositions, 0, len(inputs))
+	for _, i := range inputs {
+		joints = append(joints, JointPositionsFromRadians(InputsToFloats(i)))
+	}
+	return joints
+}
+
+func InputFromJointPositions(joints []*pb.JointPositions) [][]Input {
+	inputs := make([][]Input, 0, len(joints))
+	for _, i := range joints {
+		inputs = append(inputs, FloatsToInputs(JointPositionsToRadians(i)))
+	}
+	return inputs
+}
+
 // InputEnabled is a standard interface for all things that interact with the frame system
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.

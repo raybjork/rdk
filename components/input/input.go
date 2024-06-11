@@ -152,7 +152,7 @@ const (
 )
 
 // Event is passed to the registered ControlFunction or returned by State().
-type Event struct {
+type  Event struct {
 	Time    time.Time
 	Event   EventType
 	Control Control // Key or Axis

@@ -18,7 +18,7 @@ type Arm struct {
 	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 	MoveToPositionFunc       func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error
-	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]interface{}) error
+	MoveToJointPositionsFunc func(ctx context.Context, inputs [][]referenceframe.Input, extra map[string]interface{}) error
 	JointPositionsFunc       func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc             func(context.Context) (bool, error)
@@ -56,11 +56,11 @@ func (a *Arm) MoveToPosition(ctx context.Context, to spatialmath.Pose, extra map
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, inputs [][]referenceframe.Input, extra map[string]interface{}) error {
 	if a.MoveToJointPositionsFunc == nil {
-		return a.Arm.MoveToJointPositions(ctx, jp, extra)
+		return a.Arm.MoveToJointPositions(ctx, inputs, extra)
 	}
-	return a.MoveToJointPositionsFunc(ctx, jp, extra)
+	return a.MoveToJointPositionsFunc(ctx, inputs, extra)
 }
 
 // JointPositions calls the injected JointPositions or the real version.

@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -97,7 +98,7 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.Positions, req.Extra.AsMap())
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, referenceframe.InputFromJointPositions(req.Positions), req.Extra.AsMap())
 }
 
 // Stop stops the arm specified.

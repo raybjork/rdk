@@ -89,7 +89,7 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positions [][]referenceframe.Input, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,
-		Positions: positions,
+		Positions: referenceframe.JointPositionsFromInput(positions),
 		Extra:     ext,
 	})
 	return err
@@ -151,13 +151,7 @@ func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.
 	if c.model == nil {
 		return errArmClientModelNotValid
 	}
-	for _, goal := range inputSteps {
-		err := c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return c.MoveToJointPositions(ctx, inputSteps, nil)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

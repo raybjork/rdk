@@ -106,7 +106,7 @@ type Arm interface {
 	//
 	//    // Move each joint of the arm to the position these values specify.
 	//    err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
+	MoveToJointPositions(ctx context.Context, positionDegs [][]referenceframe.Input, extra map[string]interface{}) error
 
 	// JointPositions returns the current joint positions of the arm.
 	//    myArm , err := arm.FromRobot(machine, "my_arm")
