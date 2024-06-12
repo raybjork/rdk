@@ -406,7 +406,6 @@ func (ua *urArm) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]referenceframe.Input) error {
-	ua.logger.Info("DOING THE THING")
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -416,19 +415,23 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
 
-	var cmd string
-	for _, input := range inputSteps {
-		radians := referenceframe.JointPositionsToRadians(ua.model.ProtobufFromInput(input))
-		cmd += fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0.001)\r\n",
-			radians[0],
-			radians[1],
-			radians[2],
-			radians[3],
-			radians[4],
-			radians[5],
-			0.8*ua.speedRadPerSec,
-			ua.speedRadPerSec,
-		)
+	formatCmd := func(inputsSteos [][]referenceframe.Input) string {
+		cmd := "def move():\n"
+		for _, input := range inputSteps {
+			radians := referenceframe.JointPositionsToRadians(ua.model.ProtobufFromInput(input))
+			cmd += fmt.Sprintf("\tmovej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0.01)\r\n",
+				radians[0],
+				radians[1],
+				radians[2],
+				radians[3],
+				radians[4],
+				radians[5],
+				0.8*ua.speedRadPerSec,
+				ua.speedRadPerSec,
+			)
+		}
+		cmd += "end\nmove()"
+		return cmd
 	}
 
 	// // calculate a timeout that corresponds to how fast the arm will move
@@ -444,7 +447,8 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]
 	// if estTime := time.Duration(1.2*maxAngle/ua.speedRadPerSec) * time.Second; estTime > timeout {
 	// 	timeout = estTime
 	// }
-
+	cmd := formatCmd(inputSteps)
+	ua.logger.Warn(cmd)
 	if _, err := ua.connControl.Write([]byte(cmd)); err != nil {
 		return err
 	}
