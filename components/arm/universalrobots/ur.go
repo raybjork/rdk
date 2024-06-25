@@ -417,9 +417,13 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]
 
 	formatCmd := func(inputsSteos [][]referenceframe.Input) string {
 		cmd := "def move():\n"
-		for _, input := range inputSteps {
+		for i, input := range inputSteps {
+			r := 0.1
+			if i == 0 || i == len(inputSteps)-1 {
+				r = 0
+			}
 			radians := referenceframe.JointPositionsToRadians(ua.model.ProtobufFromInput(input))
-			cmd += fmt.Sprintf("\tmovej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0.01)\r\n",
+			cmd += fmt.Sprintf("\tmovej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=%f)\r\n",
 				radians[0],
 				radians[1],
 				radians[2],
@@ -428,6 +432,7 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]
 				radians[5],
 				0.8*ua.speedRadPerSec,
 				ua.speedRadPerSec,
+				r,
 			)
 		}
 		cmd += "end\nmove()"
