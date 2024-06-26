@@ -378,13 +378,19 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 
 // MoveToJointPositions moves the UR arm to the specified joint positions.
 func (ua *urArm) MoveToJointPositions(ctx context.Context, inputs [][]referenceframe.Input, extra map[string]interface{}) error {
+	blend, ok := extra["blend"]
+	if !ok {
+		return errors.New("blend was set wrong")
+	}
+	blendFloat, _ := blend.(float64)
+
 	// check that joint positions are not out of bounds
 	for _, input := range inputs {
 		if err := arm.CheckDesiredJointPositions(ctx, ua, input); err != nil {
 			return err
 		}
 	}
-	return ua.moveToJointPositionRadians(ctx, inputs)
+	return ua.moveToJointPositionRadians(ctx, inputs, blendFloat)
 }
 
 // Stop stops the arm with some deceleration.
@@ -405,7 +411,7 @@ func (ua *urArm) IsMoving(ctx context.Context) (bool, error) {
 	return ua.opMgr.OpRunning(), nil
 }
 
-func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]referenceframe.Input) error {
+func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]referenceframe.Input, blend float64) error {
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -415,10 +421,10 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, inputSteps [][]
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
 
-	formatCmd := func(inputsSteos [][]referenceframe.Input) string {
+	formatCmd := func(inputSteps [][]referenceframe.Input) string {
 		cmd := "def move():\n"
 		for i, input := range inputSteps {
-			r := 0.1
+			r := blend // m
 			if i == 0 || i == len(inputSteps)-1 {
 				r = 0
 			}
