@@ -36,7 +36,7 @@ func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServ
 	if err != nil {
 		return nil, err
 	}
-	return motion.NewRPCServiceServer(coll).(pb.MotionServiceServer), nil
+	return motion.NewRPCServiceServerV1(coll).(pb.MotionServiceServer), nil
 }
 
 func TestServerMove(t *testing.T) {

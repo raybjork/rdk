@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/service/motion/v1"
+	pb2 "go.viam.com/api/service/motion/v2"
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/motionplan"
@@ -24,9 +26,15 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
-		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceServerConstructor: NewRPCServiceServerV1,
 		RPCServiceHandler:           pb.RegisterMotionServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
+	})
+	resource.RegisterAPI(APIV2, resource.APIRegistration[Service]{
+		RPCServiceServerConstructor: NewRPCServiceServerV2,
+		RPCServiceHandler:           pb2.RegisterMotionServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb2.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
 }
@@ -421,6 +429,8 @@ const SubtypeName = "motion"
 
 // API is a variable that identifies the motion service resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+
+var APIV2 = resource.APINamespaceRDK.WithServiceType(SubtypeName + "v2")
 
 // Named is a helper for getting the named motion service's typed resource name.
 func Named(name string) resource.Name {

@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	pb2 "go.viam.com/api/service/motion/v2"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
@@ -13,16 +14,30 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// serviceServer implements the MotionService from motion.proto.
-type serviceServer struct {
+type serviceServerV1 struct {
 	pb.UnimplementedMotionServiceServer
+	server serviceServer
+}
+
+type serviceServerV2 struct {
+	pb2.UnimplementedMotionServiceServer
+	server serviceServer
+}
+
+type serviceServer struct {
 	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a motion gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
-	return &serviceServer{coll: coll}
+func NewRPCServiceServerV1(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServerV1{server: serviceServer{coll: coll}}
+}
+
+// NewRPCServiceServer constructs an EXPERIMENTAL motion gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServerV2(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServerV2{server: serviceServer{coll: coll}}
 }
 
 func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
