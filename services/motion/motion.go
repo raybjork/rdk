@@ -26,13 +26,7 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
-		RPCServiceServerConstructor: NewRPCServiceServerV1,
-		RPCServiceHandler:           pb.RegisterMotionServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
-		RPCClient:                   NewClientFromConn,
-	})
-	resource.RegisterAPI(APIV2, resource.APIRegistration[Service]{
-		RPCServiceServerConstructor: NewRPCServiceServerV2,
+		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb2.RegisterMotionServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb2.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,

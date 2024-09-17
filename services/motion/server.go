@@ -14,30 +14,15 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-type serviceServerV1 struct {
-	pb.UnimplementedMotionServiceServer
-	server serviceServer
-}
-
-type serviceServerV2 struct {
-	pb2.UnimplementedMotionServiceServer
-	server serviceServer
-}
-
 type serviceServer struct {
+	pb2.UnimplementedMotionServiceServer
 	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a motion gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServerV1(coll resource.APIResourceCollection[Service]) interface{} {
-	return &serviceServerV1{server: serviceServer{coll: coll}}
-}
-
-// NewRPCServiceServer constructs an EXPERIMENTAL motion gRPC service server.
-// It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServerV2(coll resource.APIResourceCollection[Service]) interface{} {
-	return &serviceServerV2{server: serviceServer{coll: coll}}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {

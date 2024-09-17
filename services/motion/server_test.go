@@ -12,6 +12,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	pb2 "go.viam.com/api/service/motion/v2"
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 
@@ -31,12 +32,12 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
+func newServer(resources map[resource.Name]motion.Service) (pb2.MotionServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(motion.API, resources)
 	if err != nil {
 		return nil, err
 	}
-	return motion.NewRPCServiceServerV1(coll).(pb.MotionServiceServer), nil
+	return motion.NewRPCServiceServer(coll).(pb2.MotionServiceServer), nil
 }
 
 func TestServerMove(t *testing.T) {
