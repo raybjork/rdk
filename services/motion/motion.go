@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
-	pb "go.viam.com/api/service/motion/v2"
+	pb "go.viam.com/api/service/motion/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 

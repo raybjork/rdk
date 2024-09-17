@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
-	pb "go.viam.com/api/service/motion/v2"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 

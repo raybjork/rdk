@@ -5,7 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
-	pb "go.viam.com/api/service/motion/v2"
+	pb "go.viam.com/api/service/motion/v1"
+	pb2 "go.viam.com/api/service/motion/v2"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
@@ -15,6 +16,7 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedMotionServiceServer
+	pb2.UnimplementedMotionServiceXServer
 	coll resource.APIResourceCollection[Service]
 }
 
