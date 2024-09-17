@@ -11,8 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
-	pb "go.viam.com/api/service/motion/v1"
-	pb2 "go.viam.com/api/service/motion/v2"
+	pb "go.viam.com/api/service/motion/v2"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -27,8 +26,8 @@ import (
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
-		RPCServiceHandler:           pb2.RegisterMotionServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &pb2.MotionService_ServiceDesc,
+		RPCServiceHandler:           pb.RegisterMotionServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
 }

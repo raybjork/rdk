@@ -7,7 +7,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
-	pb "go.viam.com/api/service/motion/v1"
+	pb "go.viam.com/api/service/motion/v2"
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/motionplan"

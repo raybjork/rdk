@@ -8,7 +8,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-	motionpb "go.viam.com/api/service/motion/v1"
+	motionpb "go.viam.com/api/service/motion/v2"
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"

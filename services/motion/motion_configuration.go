@@ -3,7 +3,7 @@ package motion
 import (
 	"math"
 
-	pb "go.viam.com/api/service/motion/v1"
+	pb "go.viam.com/api/service/motion/v2"
 
 	"go.viam.com/rdk/protoutils"
 )

@@ -11,7 +11,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
-	pb "go.viam.com/api/service/motion/v1"
+	pb "go.viam.com/api/service/motion/v2"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"

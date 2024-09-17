@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	pb "go.viam.com/api/service/motion/v1"
+	pb "go.viam.com/api/service/motion/v2"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
