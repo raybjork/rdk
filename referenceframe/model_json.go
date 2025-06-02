@@ -54,7 +54,6 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	}
 
 	model := NewSimpleModel(modelName)
-	model.modelConfig = cfg
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
@@ -120,6 +119,15 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if cfg.OriginalFile == nil {
+		bytes, err := model.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		cfg.OriginalFile = &ModelFile{Bytes: bytes, Extension: "json"}
+	}
+	model.modelConfig = cfg
 
 	return model, nil
 }

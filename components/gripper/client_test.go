@@ -2,7 +2,6 @@ package gripper_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 
@@ -41,6 +40,11 @@ func TestClient(t *testing.T) {
 		spatialmath.NewPoint(r3.Vector{X: 4, Y: 5, Z: 6}, "pt2"),
 	}
 
+	// gs, err := (&spatialmath.GeometryConfig{Type: "box", X: 100, Y: 100, Z: 100}).ParseConfig()
+	// test.That(t, err, test.ShouldBeNil)
+	mf, err := gripper.MakeModel("name", expectedGeometries)
+	test.That(t, err, test.ShouldBeNil)
+
 	grabbed1 := true
 	injectGripper := &inject.Gripper{}
 	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
@@ -60,7 +64,7 @@ func TestClient(t *testing.T) {
 		return expectedGeometries, nil
 	}
 	injectGripper.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errors.New("kinematics unimplmented")
+		return mf, nil
 	}
 
 	injectGripper2 := &inject.Gripper{}
@@ -177,4 +181,16 @@ func TestClient(t *testing.T) {
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+func TestMakeModel(t *testing.T) {
+	gs, err := (&spatialmath.GeometryConfig{Type: "box", X: 100, Y: 100, Z: 100}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	mf, err := gripper.MakeModel("name", []spatialmath.Geometry{gs})
+	test.That(t, err, test.ShouldBeNil)
+
+	resp := referenceframe.KinematicModelToProtobuf(mf)
+	m, err := referenceframe.KinematicModelFromProtobuf("name", resp)
+	test.That(t, resp, test.ShouldBeNil)
+	_ = m
 }
